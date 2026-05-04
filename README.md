@@ -1,7 +1,7 @@
 # SecondBrain
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Powered by agentic-kit](https://img.shields.io/badge/powered%20by-agentic--kit-7c3aed)](https://github.com/openintelligence-labs/agentic-kit)
+[![Powered by actants](https://img.shields.io/badge/powered%20by-actants-7c3aed)](https://github.com/openintelligence-labs/actants)
 
 > **Personal AI memory — local alternative to Rewind.ai.** Continuously indexes your screen, documents, and browser history with OCR and embeddings. Ask natural questions like *"what was that restaurant my friend mentioned last Tuesday?"* and find it instantly.
 
@@ -35,7 +35,7 @@ secondbrain search "that article about quantum computing"
 - [x] Chunking with overlap
 - [x] CLI skeleton
 - [ ] Document ingestion pipeline
-- [ ] Embedding via agentic-kit
+- [ ] Embedding via actants
 - [ ] sqlite-vec storage
 - [ ] Query rewriting + retrieval
 - [ ] Screen OCR daemon
@@ -43,7 +43,7 @@ secondbrain search "that article about quantum computing"
 
 ## Part of the Open Intelligence Labs ecosystem
 
-- [agentic-kit](https://github.com/openintelligence-labs/agentic-kit) — shared SDK + embeddings
+- [actants](https://github.com/openintelligence-labs/actants) — shared SDK + embeddings
 - [DeepDive](https://github.com/openintelligence-labs/deepdive) — uses the same embedding pipeline
 - [MeetMind](https://github.com/openintelligence-labs/meetmind) — meeting transcripts flow into your second brain
 
