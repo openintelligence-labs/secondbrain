@@ -1,0 +1,30 @@
+{"axis": "extraction", "query": "what was the deadline Sam mentioned for the snowflake migration?", "expected_capture_ids": ["c-snowflake-deadline"]}
+{"axis": "extraction", "query": "kafka consumer lag at 14:02 on the ingest pipeline", "expected_capture_ids": ["c-kafka-lag"]}
+{"axis": "extraction", "query": "stripe billing token expiry hotfix on Wednesday", "expected_capture_ids": ["c-stripe-billing"]}
+{"axis": "extraction", "query": "openai embedding API outage incident review", "expected_capture_ids": ["c-openai-outage"]}
+{"axis": "extraction", "query": "Postgres autovacuum tuning notes from staging", "expected_capture_ids": ["c-pg-autovacuum"]}
+{"axis": "extraction", "query": "Alex hiring panel feedback engineering manager role", "expected_capture_ids": ["c-alex-panel"]}
+{"axis": "multi-session", "query": "Sam and Pat agreed on the rollback plan for snowflake", "expected_capture_ids": ["c-snowflake-deadline", "c-rollback-plan"]}
+{"axis": "multi-session", "query": "what did the team say about Stripe and the billing rollout window", "expected_capture_ids": ["c-stripe-billing", "c-stripe-rollout"]}
+{"axis": "multi-session", "query": "Q3 budget snowflake and bigquery cost comparison conclusions", "expected_capture_ids": ["c-snowflake-q3-budget", "c-bigquery-cost"]}
+{"axis": "multi-session", "query": "kafka pipeline health discussion across last two reviews", "expected_capture_ids": ["c-kafka-lag", "c-kafka-review"]}
+{"axis": "temporal", "query": "what did Sam commit to before the friday deadline", "expected_capture_ids": ["c-snowflake-deadline"]}
+{"axis": "temporal", "query": "deploy that happened wednesday afternoon", "expected_capture_ids": ["c-stripe-billing"]}
+{"axis": "temporal", "query": "the q3 budget review meeting from last week", "expected_capture_ids": ["c-snowflake-q3-budget"]}
+{"axis": "temporal", "query": "the kafka follow-up meeting after the lag spike", "expected_capture_ids": ["c-kafka-review"]}
+{"axis": "temporal", "query": "the panel feedback gathered in monday's hiring sync", "expected_capture_ids": ["c-alex-panel"]}
+{"axis": "knowledge_update", "query": "current owner of the snowflake migration", "expected_capture_ids": ["c-rollback-plan"]}
+{"axis": "knowledge_update", "query": "latest decision on the stripe billing rollout timeline", "expected_capture_ids": ["c-stripe-rollout"]}
+{"axis": "knowledge_update", "query": "what's the new on-call rotation policy", "expected_capture_ids": ["c-oncall-policy"]}
+{"axis": "knowledge_update", "query": "engineering manager hire decision update", "expected_capture_ids": ["c-alex-panel"]}
+{"axis": "knowledge_update", "query": "current bigquery cost numbers vs snowflake", "expected_capture_ids": ["c-bigquery-cost"]}
+{"axis": "abstention", "query": "marsupial breeding seasons in queensland", "expected_capture_ids": []}
+{"axis": "abstention", "query": "best ramen shop in shibuya", "expected_capture_ids": []}
+{"axis": "abstention", "query": "cricket world cup 2027 schedule", "expected_capture_ids": []}
+{"axis": "abstention", "query": "fastest way to peel garlic", "expected_capture_ids": []}
+{"axis": "abstention", "query": "how to train for an ironman", "expected_capture_ids": []}
+{"axis": "extraction", "query": "weekend hike golden gate trail conditions notes", "expected_capture_ids": ["c-trail-notes"]}
+{"axis": "extraction", "query": "OnCall handoff procedure changes from Pat", "expected_capture_ids": ["c-oncall-policy"]}
+{"axis": "multi-session", "query": "all conversations involving Pat Lane this sprint", "expected_capture_ids": ["c-rollback-plan", "c-oncall-policy"]}
+{"axis": "temporal", "query": "snowflake-related events this week", "expected_capture_ids": ["c-snowflake-deadline", "c-snowflake-q3-budget", "c-rollback-plan"]}
+{"axis": "knowledge_update", "query": "latest known status of the kafka ingest pipeline", "expected_capture_ids": ["c-kafka-review"]}

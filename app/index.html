@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SecondBrain</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* Layout shell only — visual language lives in styles.css. */
+      :root { --sb-sidebar-w: 220px; }
+      html, body { margin: 0; height: 100vh; overflow: hidden; }
+      body {
+        display: grid;
+        grid-template-columns: var(--sb-sidebar-w) 1fr;
+      }
+
+      /* ---- sidebar ---- */
+      aside {
+        background: var(--bg-elev-1);
+        border-right: 1px solid var(--line);
+        padding: 14px 0 0;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        overflow: hidden;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 4px 18px 14px;
+      }
+      .brand-mark {
+        width: 18px; height: 18px;
+        border-radius: 5px;
+        background:
+          radial-gradient(circle at 30% 30%, var(--accent) 0%, #3a64c4 70%);
+        box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.35);
+      }
+      .brand-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-strong);
+        letter-spacing: -0.01em;
+      }
+      .brand-version {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text-faint);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .search-shortcut {
+        margin: 0 14px 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--text-muted);
+        font-size: 12px;
+        cursor: pointer;
+        transition: border-color 100ms ease;
+      }
+      .search-shortcut:hover { border-color: var(--line-strong); color: var(--text); }
+      .search-shortcut .kbd {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: var(--bg-elev-2);
+        color: var(--text-muted);
+      }
+
+      .tabs {
+        padding: 0 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .tab {
+        appearance: none;
+        background: transparent;
+        border: none;
+        text-align: left;
+        padding: 7px 10px;
+        font-family: var(--font);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        border-radius: 5px;
+        transition: background 80ms ease, color 80ms ease;
+      }
+      .tab:hover { background: var(--bg-hover); color: var(--text); }
+      .tab[data-active="true"] {
+        background: var(--bg-active);
+        color: var(--text-strong);
+      }
+      .tab .count {
+        font-size: 11px;
+        color: var(--text-faint);
+        font-variant-numeric: tabular-nums;
+        font-weight: 400;
+      }
+      .tab[data-active="true"] .count { color: var(--accent); }
+
+      .sidebar-foot {
+        border-top: 1px solid var(--line);
+        padding: 12px 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .sidebar-foot .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: none;
+        animation: none;
+        font-size: 12px;
+      }
+      .sidebar-foot .row:hover { background: transparent; }
+      .sidebar-foot .label { color: var(--text-muted); flex: 1; }
+      .sidebar-foot .value { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+      /* ---- main ---- */
+      main { overflow: hidden; }
+      .panel {
+        display: none;
+        height: 100%;
+        grid-template-rows: auto 1fr auto;
+      }
+      .panel[data-active="true"] { display: grid; }
+      .panel[data-panel="timeline"][data-active="true"] {
+        grid-template-rows: auto auto 1fr auto;
+      }
+
+      .page-head {
+        padding: 16px 24px 12px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: end;
+        gap: 16px;
+      }
+      .page-head .title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-strong);
+        letter-spacing: -0.01em;
+      }
+      .page-head .subtitle {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .page-body { overflow-y: auto; }
+      .page-foot {
+        padding: 8px 24px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--text-faint);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .page-foot kbd {
+        font-family: var(--font-mono);
+        background: var(--bg-elev-2);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        color: var(--text-muted);
+        padding: 0 4px;
+        font-size: 10px;
+      }
+
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* Segmented buttons — Linear's "tabs within a tab" style */
+      .seg {
+        display: inline-flex;
+        background: var(--bg-elev-1);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 1px;
+      }
+      .seg button {
+        appearance: none;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-family: var(--font);
+        font-size: 11px;
+        font-weight: 500;
+        padding: 4px 10px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 80ms ease, color 80ms ease;
+      }
+      .seg button:hover { color: var(--text); }
+      .seg button[data-active="true"] {
+        color: var(--text-strong);
+        background: var(--bg-elev-2);
+      }
+
+      /* Cards (digest, settings) */
+      .card {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .card h2 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin: 0 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .card .body {
+        font-size: 13px;
+        color: var(--text);
+      }
+      .card .line {
+        padding: 5px 0;
+        border-top: 1px solid var(--line);
+      }
+      .card .line:first-child { border-top: none; }
+      .card .muted { color: var(--text-muted); font-size: 12px; }
+
+      /* Timeline scrubber */
+      #timeline-scrubber-wrap {
+        position: relative;
+        padding: 12px 24px 8px;
+        background: var(--bg-elev-1);
+        border-bottom: 1px solid var(--line);
+      }
+      #timeline-scrubber {
+        display: block;
+        width: 100%;
+        height: 36px;
+        cursor: crosshair;
+        border-radius: 4px;
+      }
+      .scrubber-axis {
+        display: grid;
+        grid-template-columns: repeat(24, 1fr);
+        padding: 2px 0 0;
+        font-size: 9px;
+        color: var(--text-faint);
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
+      .scrubber-axis span { text-align: center; }
+      .scrubber-axis span:nth-child(odd) { color: transparent; }
+      .scrubber-hint {
+        margin-top: 4px;
+        font-size: 10px;
+        color: var(--text-faint);
+      }
+    </style>
+  </head>
+  <body data-theme="dark">
+    <aside>
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div class="brand-name">SecondBrain</div>
+        <div class="brand-version">v0.2</div>
+      </div>
+
+      <div class="search-shortcut" id="sidebar-search">
+        <span>Search memory</span>
+        <span class="kbd">⌘K</span>
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab" data-tab="timeline" data-active="true">
+          <span>Timeline</span>
+          <span class="count" id="tab-count-timeline">—</span>
+        </button>
+        <button class="tab" data-tab="search">
+          <span>Search</span>
+          <span class="count">⌘K</span>
+        </button>
+        <button class="tab" data-tab="digest">
+          <span>Digest</span>
+          <span class="count" id="tab-count-digest">—</span>
+        </button>
+        <button class="tab" data-tab="commitments">
+          <span>Commitments</span>
+          <span class="count" id="tab-count-commitments">—</span>
+        </button>
+        <button class="tab" data-tab="people">
+          <span>People</span>
+          <span class="count" id="tab-count-people">—</span>
+        </button>
+        <button class="tab" data-tab="settings">
+          <span>Settings</span>
+          <span class="count"></span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="row">
+          <span class="dot" data-state="offline" id="status-dot"></span>
+          <span class="label">Daemon</span>
+          <span class="value" id="status-text">offline</span>
+        </div>
+        <div class="row">
+          <span class="label">Today</span>
+          <span class="value" id="status-today">0</span>
+        </div>
+        <button class="btn" id="pause-toggle" data-state="paused" style="width:100%;">Pause</button>
+      </div>
+    </aside>
+
+    <main>
+      <!-- TIMELINE PANEL -->
+      <section class="panel" data-panel="timeline" data-active="true">
+        <header class="page-head">
+          <div>
+            <div class="title">Timeline</div>
+            <div class="subtitle" id="timeline-date">—</div>
+          </div>
+          <div class="controls">
+            <input class="input-line" id="timeline-filter" placeholder="Filter today" />
+            <div class="seg">
+              <button id="prev-day">‹</button>
+              <button id="today-btn" data-active="true">Today</button>
+              <button id="next-day">›</button>
+            </div>
+          </div>
+        </header>
+        <div id="timeline-scrubber-wrap">
+          <canvas id="timeline-scrubber" width="1000" height="36"></canvas>
+          <div class="scrubber-axis" id="scrubber-axis"></div>
+          <div class="scrubber-hint" id="scrubber-hint">
+            Captures per hour — drag to scope, double-click to reset
+          </div>
+        </div>
+        <div class="page-body" id="timeline-body">
+          <div class="empty">Loading…</div>
+        </div>
+        <footer class="page-foot">
+          <span><kbd>⌘</kbd> <kbd>K</kbd> Quick search · right-click a row to forget</span>
+          <span id="timeline-meta">—</span>
+        </footer>
+      </section>
+
+      <!-- SEARCH PANEL -->
+      <section class="panel" data-panel="search">
+        <header class="page-head">
+          <div>
+            <div class="title">Search</div>
+            <div class="subtitle">Hybrid BM25 + dense (RRF fused)</div>
+          </div>
+          <div class="controls">
+            <input class="input-line" id="search-input" placeholder="What do you remember…" />
+          </div>
+        </header>
+        <div class="page-body" id="search-body">
+          <div class="empty">Type a query to search your memory</div>
+        </div>
+        <footer class="page-foot">
+          <span><kbd>↩</kbd> open · <kbd>Esc</kbd> clear</span>
+          <span id="search-meta">—</span>
+        </footer>
+      </section>
+
+      <!-- DIGEST PANEL -->
+      <section class="panel" data-panel="digest">
+        <header class="page-head">
+          <div>
+            <div class="title">Digest</div>
+            <div class="subtitle" id="digest-subtitle">—</div>
+          </div>
+          <div class="controls">
+            <div class="seg" id="digest-period">
+              <button data-period="day" data-active="true">Day</button>
+              <button data-period="week">Week</button>
+              <button data-period="month">Month</button>
+            </div>
+            <button class="btn" id="digest-llm-toggle" data-active="false">LLM</button>
+          </div>
+        </header>
+        <div class="page-body" id="digest-body">
+          <div class="empty">Loading…</div>
+        </div>
+        <footer class="page-foot">
+          <span>Themes · broken promises · suggested follow-ups</span>
+          <span id="digest-meta">—</span>
+        </footer>
+      </section>
+
+      <!-- COMMITMENTS PANEL -->
+      <section class="panel" data-panel="commitments">
+        <header class="page-head">
+          <div>
+            <div class="title">Commitments</div>
+            <div class="subtitle">First-person promises extracted from your screen</div>
+          </div>
+          <div class="controls">
+            <div class="seg" id="commitments-status">
+              <button data-status="open" data-active="true">Open</button>
+              <button data-status="done">Done</button>
+              <button data-status="broken">Broken</button>
+            </div>
+          </div>
+        </header>
+        <div class="page-body" id="commitments-body">
+          <div class="empty">Loading…</div>
+        </div>
+        <footer class="page-foot">
+          <span>Extracted by the local LLM with a heuristic fallback</span>
+          <span id="commitments-meta">—</span>
+        </footer>
+      </section>
+
+      <!-- PEOPLE PANEL -->
+      <section class="panel" data-panel="people">
+        <header class="page-head">
+          <div>
+            <div class="title">People</div>
+            <div class="subtitle">Cross-app entity graph</div>
+          </div>
+          <div class="controls">
+            <input class="input-line" id="people-input" placeholder="Look up a name…" />
+          </div>
+        </header>
+        <div class="page-body" id="people-body">
+          <div class="empty">Type a name to see their card</div>
+        </div>
+        <footer class="page-foot">
+          <span>Memories that mention this person, newest first</span>
+          <span id="people-meta">—</span>
+        </footer>
+      </section>
+
+      <!-- SETTINGS PANEL -->
+      <section class="panel" data-panel="settings">
+        <header class="page-head">
+          <div>
+            <div class="title">Settings</div>
+            <div class="subtitle">BYO-LLM · audit log · zero phone-home</div>
+          </div>
+          <div class="controls">
+            <button class="btn" id="theme-toggle">Theme</button>
+            <button class="btn" id="settings-refresh">Refresh</button>
+          </div>
+        </header>
+        <div class="page-body" id="settings-body">
+          <div class="empty">Loading…</div>
+        </div>
+        <footer class="page-foot">
+          <span>Captures, embeddings, and the knowledge graph never leave the device</span>
+          <span id="settings-meta">—</span>
+        </footer>
+      </section>
+    </main>
+
+    <div id="toast-mount"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
