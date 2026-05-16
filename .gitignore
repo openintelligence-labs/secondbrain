@@ -1,12 +1,7 @@
-# architecture docs (uncooked — kept local until polished)
+
 docs/
-
-# Claude Code config (local-only)
 .claude/
-
-# CLAUDE.md (uncooked — kept local until polished)
 CLAUDE.md
-
 __pycache__/
 *.py[cod]
 *$py.class
@@ -35,3 +30,33 @@ htmlcov/
 *.db
 *.duckdb
 .claude/settings.local.json
+
+
+spikes/results.json
+
+
+.demo/
+*.db-shm
+*.db-wal
+
+app/node_modules/
+app/dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+
+swift/**/.build/
+
+
+eval/_workdir*/
+eval/_bench_workdir/
+eval/baseline_results.json
+eval/baseline_matrix.json
+eval/bench_results.json
+
+
+.github/workflows/*.exists
+
+CHANGELOG.md
+
+assets/

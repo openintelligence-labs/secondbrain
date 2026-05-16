@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened Runtime required for notarization. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Required so we can spawn the Python daemon + the Swift capture
+         sidecar as helper processes from the .app bundle. -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- The capture sidecar requests ScreenCaptureKit access. The app must
+         declare the screen-recording usage; macOS will prompt the user on
+         first run. -->
+    <key>com.apple.security.device.screen-capture</key>
+    <true/>
+
+    <!-- Localhost HTTP gateway for the webview. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Keychain access for the device root key + sync PSK. -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)com.openintelligencelabs.secondbrain</string>
+    </array>
+</dict>
+</plist>
