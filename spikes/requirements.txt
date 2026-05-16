@@ -1,0 +1,24 @@
+# S0 spike-validated dependency lockfile (May 2026, py3.13, M-series)
+# Reproduce with:  python3 -m venv .venv && .venv/bin/pip install -r spikes/requirements.txt
+
+# Storage
+kuzu==0.11.3
+lancedb==0.30.2
+pyarrow
+tantivy==0.26.0
+sqlcipher3-wheels
+keyring
+
+# Embeddings & vision
+sentence-transformers
+einops
+numpy
+pillow
+
+# ColQwen — pin chain that actually loads weights end-to-end on py3.13 + MPS
+torch==2.10.0
+torchvision==0.25.0
+transformers>=5.3,<6
+peft>=0.19
+accelerate
+colpali-engine==0.3.15

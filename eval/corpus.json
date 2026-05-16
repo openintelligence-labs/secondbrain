@@ -1,0 +1,17 @@
+{
+  "captures": [
+    {"id": "c-snowflake-deadline", "ts": "2026-05-04T14:00:00Z", "app": "Slack", "text": "Sam Reed agreed to ship the Snowflake migration by Friday."},
+    {"id": "c-kafka-lag", "ts": "2026-05-04T14:02:00Z", "app": "Datadog", "text": "Kafka consumer lag spiked at 14:02 on the ingest pipeline; investigating."},
+    {"id": "c-stripe-billing", "ts": "2026-05-06T16:00:00Z", "app": "Linear", "text": "Stripe billing token expiry hotfix shipped Wednesday afternoon."},
+    {"id": "c-openai-outage", "ts": "2026-05-03T10:00:00Z", "app": "Notion", "text": "OpenAI embedding API outage incident review notes — root cause analysis attached."},
+    {"id": "c-pg-autovacuum", "ts": "2026-05-02T11:30:00Z", "app": "Notion", "text": "Postgres autovacuum tuning notes from staging — bumped scale_factor to 0.05."},
+    {"id": "c-alex-panel", "ts": "2026-05-04T09:00:00Z", "app": "Notion", "text": "Alex Kim hiring panel feedback for the engineering manager role; 4 of 5 say strong hire."},
+    {"id": "c-rollback-plan", "ts": "2026-05-05T13:00:00Z", "app": "Slack", "text": "Pat Lane will own the rollback plan for the Snowflake migration; new owner of the migration is Pat."},
+    {"id": "c-stripe-rollout", "ts": "2026-05-06T17:30:00Z", "app": "Linear", "text": "Latest decision: Stripe billing rollout timeline pushed to next Tuesday for safety."},
+    {"id": "c-snowflake-q3-budget", "ts": "2026-04-30T15:00:00Z", "app": "Notion", "text": "Q3 budget review meeting on Snowflake; conclusion was to maintain current spend."},
+    {"id": "c-bigquery-cost", "ts": "2026-04-30T16:00:00Z", "app": "Notion", "text": "BigQuery cost comparison vs Snowflake — current BigQuery numbers $42k/mo, Snowflake $48k/mo."},
+    {"id": "c-kafka-review", "ts": "2026-05-05T11:00:00Z", "app": "Slack", "text": "Kafka follow-up meeting after the lag spike: pipeline health restored, monitoring tightened."},
+    {"id": "c-oncall-policy", "ts": "2026-05-05T17:00:00Z", "app": "Notion", "text": "Pat Lane published the new on-call rotation policy and OnCall handoff procedure changes."},
+    {"id": "c-trail-notes", "ts": "2026-05-03T08:00:00Z", "app": "Notes", "text": "Weekend hike — Golden Gate trail conditions are dry; mileage 8.4."}
+  ]
+}
