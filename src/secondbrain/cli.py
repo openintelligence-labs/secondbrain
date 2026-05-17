@@ -1,8 +1,10 @@
 """SecondBrain CLI."""
+
 from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC
 from pathlib import Path
 
 import click
@@ -11,7 +13,6 @@ from secondbrain.capture.frame import Frame, SyntheticFrameSource, now
 from secondbrain.daemon import Daemon, DaemonConfig
 from secondbrain.store import captures as captures_repo
 from secondbrain.store.oltp import StoreConfig, open_encrypted
-
 
 DEFAULT_DB = Path.home() / ".secondbrain" / "secondbrain.db"
 
@@ -37,8 +38,8 @@ def main(ctx: click.Context, offline: bool) -> None:
 
 
 def _searcher(db: Path, *, use_stub: bool):
-    from secondbrain.embed.text import TextEmbedder
     from secondbrain.embed.stub import StubEmbedder
+    from secondbrain.embed.text import TextEmbedder
     from secondbrain.search.hybrid import HybridSearcher
     from secondbrain.store.text_index import TextIndex
     from secondbrain.store.vector import VectorStore
@@ -53,19 +54,22 @@ def _searcher(db: Path, *, use_stub: bool):
 
 @main.command()
 @click.option("--db", type=click.Path(path_type=Path), default=DEFAULT_DB)
-@click.option("--stub-embedder", is_flag=True, help="Use deterministic stub embedder (tests/dev only)")
+@click.option(
+    "--stub-embedder", is_flag=True, help="Use deterministic stub embedder (tests/dev only)"
+)
 @click.option("--no-encryption", is_flag=True, help="Open OLTP DB unencrypted")
 def index(db: Path, stub_embedder: bool, no_encryption: bool) -> None:
     """Re-index every capture in the OLTP store into LanceDB + tantivy."""
-    from secondbrain.embed.text import TextEmbedder
+    from datetime import datetime
+
     from secondbrain.embed.stub import StubEmbedder
+    from secondbrain.embed.text import TextEmbedder
     from secondbrain.indexing import Indexer
     from secondbrain.models import Capture
     from secondbrain.store import captures as captures_repo
     from secondbrain.store.oltp import StoreConfig, open_encrypted, open_unencrypted
     from secondbrain.store.text_index import TextIndex
     from secondbrain.store.vector import VectorStore
-    from datetime import datetime, timezone
 
     if not db.exists():
         click.echo(f"No DB at {db}. Run capture first.")
@@ -90,7 +94,7 @@ def index(db: Path, stub_embedder: bool, no_encryption: bool) -> None:
     for row in rows:
         cap = Capture(
             id=row["id"],
-            captured_at=datetime.fromtimestamp(row["captured_at"], tz=timezone.utc),
+            captured_at=datetime.fromtimestamp(row["captured_at"], tz=UTC),
             app_name=row.get("app_name"),
             app_bundle_id=row.get("app_bundle_id"),
             window_title=row.get("window_title"),
@@ -109,13 +113,16 @@ def index(db: Path, stub_embedder: bool, no_encryption: bool) -> None:
 @click.option("--rerank/--no-rerank", default=False, help="Apply mxbai-rerank-base-v2")
 @click.option("--stub-embedder", is_flag=True)
 @click.option("--no-encryption", is_flag=True, help="(reserved; OLTP not opened in search)")
-def search(query: str, db: Path, limit: int, rerank: bool, stub_embedder: bool, no_encryption: bool) -> None:
+def search(
+    query: str, db: Path, limit: int, rerank: bool, stub_embedder: bool, no_encryption: bool
+) -> None:
     """Search captures (BM25 ⊕ dense → RRF k=60 → optional rerank)."""
     searcher = _searcher(db, use_stub=stub_embedder)
     hits = searcher.search(query, limit=limit if not rerank else max(limit, 50))
 
     if rerank and hits:
         from secondbrain.search.rerank import Reranker
+
         rr = Reranker()
         ranking = rr.rerank(query, [h.body for h in hits], top_k=limit)
         hits = [hits[i] for i, _ in ranking]
@@ -148,6 +155,7 @@ def status(db: Path, no_encryption: bool) -> None:
         return
     if no_encryption:
         from secondbrain.store.oltp import open_unencrypted
+
         conn = open_unencrypted(db)
     else:
         conn = open_encrypted(StoreConfig(db_path=db))
@@ -174,13 +182,27 @@ def status(db: Path, no_encryption: bool) -> None:
     is_flag=True,
     help="Open DB unencrypted (dev/tests only)",
 )
-@click.option("--stub-embedder", is_flag=True, help="Use deterministic stub embedder (skip Nomic v2 download)")
-@click.option("--visual", is_flag=True, help="Also embed each persisted frame with ColQwen2.5 (slow)")
-@click.option("--no-memory", is_flag=True, help="Skip embedding + KG ingestion entirely (capture-only)")
-@click.option("--ocr-fallback", is_flag=True, help="Run Apple Vision OCR when AX text is empty (macOS only)")
-@click.option("--llm", is_flag=True, help="Route importance + commitments + digest through actants LLM (Ollama)")
+@click.option(
+    "--stub-embedder", is_flag=True, help="Use deterministic stub embedder (skip Nomic v2 download)"
+)
+@click.option(
+    "--visual", is_flag=True, help="Also embed each persisted frame with ColQwen2.5 (slow)"
+)
+@click.option(
+    "--no-memory", is_flag=True, help="Skip embedding + KG ingestion entirely (capture-only)"
+)
+@click.option(
+    "--ocr-fallback", is_flag=True, help="Run Apple Vision OCR when AX text is empty (macOS only)"
+)
+@click.option(
+    "--llm",
+    is_flag=True,
+    help="Route importance + commitments + digest through actants LLM (Ollama)",
+)
 @click.option("--llm-model", default=None, help="Override the actants LLM model")
-@click.option("--llm-embeddings", is_flag=True, help="Also route embeddings through actants (Ollama)")
+@click.option(
+    "--llm-embeddings", is_flag=True, help="Also route embeddings through actants (Ollama)"
+)
 def run(
     db: Path,
     fps: int,
@@ -242,7 +264,8 @@ def mcp(db: Path, stub_embedder: bool) -> None:
 @click.option("--no-encryption", is_flag=True, help="Open OLTP unencrypted (dev only)")
 def ui_gateway(db: Path, host: str, port: int, stub_embedder: bool, no_encryption: bool) -> None:
     """Run the 127.0.0.1 HTTP gateway the Tauri UI talks to."""
-    from secondbrain.api.http import GatewayConfig, serve as serve_gateway
+    from secondbrain.api.http import GatewayConfig
+    from secondbrain.api.http import serve as serve_gateway
     from secondbrain.api.mcp_server import make_default_context
 
     ctx = make_default_context(db=db, use_stub_embedder=stub_embedder)
@@ -299,6 +322,8 @@ def ui(
     from secondbrain.capture.frame import (
         Frame,
         LoopingSyntheticSource,
+    )
+    from secondbrain.capture.frame import (
         now as _now,
     )
     from secondbrain.daemon import Daemon, DaemonConfig
@@ -314,7 +339,7 @@ def ui(
     if binary is None:
         raise click.ClickException(
             "Tauri binary not built. Run: cd app && npm install && npm run build && "
-            "(. \"$HOME/.cargo/env\" && cd src-tauri && cargo build --release)"
+            '(. "$HOME/.cargo/env" && cd src-tauri && cargo build --release)'
         )
 
     # Preflight: production mode gets gated by the host audit.
@@ -328,7 +353,8 @@ def ui(
             click.echo("", err=True)
             click.echo(
                 f"✗ {len(blockers)} blocker(s). Fix above, or pass --demo for the "
-                "synthetic stack, or --skip-preflight to bypass.", err=True,
+                "synthetic stack, or --skip-preflight to bypass.",
+                err=True,
             )
             raise click.ClickException("preflight failed")
         click.echo("", err=True)
@@ -352,12 +378,14 @@ def ui(
     # Frame source.
     if not demo:
         from secondbrain.capture.macos_sck import MacOSScreenSource
+
         source = MacOSScreenSource(pixel_mode="png", fps=fps, display_index=0, max_frames=-1)
         src_label = f"ScreenCaptureKit @{fps}fps"
     else:
         # Loop a small set of synthetic frames forever so the UI has live data.
-        from PIL import Image
         import numpy as np
+        from PIL import Image
+
         rng = np.random.default_rng(0)
         samples = [
             "Sam Reed will ship the Snowflake migration by Friday.",
@@ -370,15 +398,17 @@ def ui(
         templates: list[Frame] = []
         for i, text in enumerate(samples):
             arr = rng.integers(0, 255, size=(240, 320, 3), dtype=np.uint8)
-            templates.append(Frame(
-                captured_at=_now(),
-                image=Image.fromarray(arr),
-                app_name=f"DemoApp{i % 3}",
-                app_bundle_id=f"com.demo.app{i % 3}",
-                window_title=f"Window {i}",
-                ax_text=text,
-                dirty_rect_fraction=0.5,
-            ))
+            templates.append(
+                Frame(
+                    captured_at=_now(),
+                    image=Image.fromarray(arr),
+                    app_name=f"DemoApp{i % 3}",
+                    app_bundle_id=f"com.demo.app{i % 3}",
+                    window_title=f"Window {i}",
+                    ax_text=text,
+                    dirty_rect_fraction=0.5,
+                )
+            )
         source = LoopingSyntheticSource(templates, interval_s=1.5)
         src_label = "synthetic frames @1.5s (--sck for real capture)"
 
@@ -387,6 +417,7 @@ def ui(
 
     async def _run_everything():
         from aiohttp import web as _web
+
         app = make_app(ctx, daemon=daemon, cfg=gw_cfg)
         runner = _web.AppRunner(app)
         await runner.setup()
@@ -408,6 +439,7 @@ def ui(
 
     # Wait for gateway to be ready before launching the UI.
     import urllib.request
+
     deadline = time.time() + 8
     gateway_up = False
     while time.time() < deadline:
@@ -446,12 +478,15 @@ def mcp_doctor(db: Path) -> None:
     click.echo(f"secondbrain version  : {__import__('secondbrain').__version__}")
     click.echo(f"python version       : {_sys.version.split()[0]}")
     click.echo(f"platform             : {platform.system()} {platform.release()}")
-    click.echo(f"db path              : {db} ({'exists' if db.exists() else 'absent — run capture first'})")
+    click.echo(
+        f"db path              : {db} ({'exists' if db.exists() else 'absent — run capture first'})"
+    )
     bin_path = _shutil.which("secondbrain")
     click.echo(f"secondbrain binary   : {bin_path or '(not on PATH)'}")
 
     # BYO-LLM: surface what env vars the user has set so they can spot a typo.
     from secondbrain.llm_config import from_env
+
     llm_cfg = from_env()
     click.echo(f"LLM config           : {llm_cfg.describe()}")
 
@@ -460,13 +495,14 @@ def mcp_doctor(db: Path) -> None:
     # forgetting the API key.
     if llm_cfg.provider:
         import importlib.util as _ilu
+
         sdk_for: dict[str, str | None] = {
             "ollama": None,
             "openai": "openai",
             "anthropic": "anthropic",
-            "gemini": None,         # uses httpx (already in deps)
-            "groq": "openai",       # OpenAI-compatible
-            "mistral": "openai",    # OpenAI-compatible
+            "gemini": None,  # uses httpx (already in deps)
+            "groq": "openai",  # OpenAI-compatible
+            "mistral": "openai",  # OpenAI-compatible
         }
         prov = llm_cfg.provider.lower()
         if prov not in sdk_for:
@@ -487,25 +523,25 @@ def mcp_doctor(db: Path) -> None:
                 click.echo(f"LLM SDK              : OK ({required} importable)")
 
     if bin_path is None:
-        click.echo(
-            "\nFix: add this venv's bin/ to PATH or symlink secondbrain into /usr/local/bin"
-        )
+        click.echo("\nFix: add this venv's bin/ to PATH or symlink secondbrain into /usr/local/bin")
 
     sb = bin_path or "secondbrain"
     db_str = str(db)
     click.echo("\nClaude Desktop config — paste into:")
     click.echo("  ~/Library/Application Support/Claude/claude_desktop_config.json\n")
-    click.echo(json.dumps(
-        {
-            "mcpServers": {
-                "secondbrain": {
-                    "command": sb,
-                    "args": ["mcp", "--db", db_str],
+    click.echo(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "secondbrain": {
+                        "command": sb,
+                        "args": ["mcp", "--db", db_str],
+                    }
                 }
-            }
-        },
-        indent=2,
-    ))
+            },
+            indent=2,
+        )
+    )
     click.echo(
         "\nThen restart Claude Desktop. Verify with: in Claude, ask "
         '"What memory tools do you have?"'
@@ -514,14 +550,20 @@ def mcp_doctor(db: Path) -> None:
 
 @main.command()
 @click.option("--db", type=click.Path(path_type=Path), default=DEFAULT_DB)
-@click.option("--capture-id", "capture_id", default=None,
-              help="Forget a single capture and any MemoryNodes only-derived from it")
-@click.option("--person", "person_name", default=None,
-              help="Forget a Person + every MemoryNode mentioning them")
-@click.option("--reason", required=True,
-              help="Required justification, written into the audit log")
-@click.option("--no-encryption", is_flag=True,
-              help="Open OLTP unencrypted (dev/tests only)")
+@click.option(
+    "--capture-id",
+    "capture_id",
+    default=None,
+    help="Forget a single capture and any MemoryNodes only-derived from it",
+)
+@click.option(
+    "--person",
+    "person_name",
+    default=None,
+    help="Forget a Person + every MemoryNode mentioning them",
+)
+@click.option("--reason", required=True, help="Required justification, written into the audit log")
+@click.option("--no-encryption", is_flag=True, help="Open OLTP unencrypted (dev/tests only)")
 def forget(
     db: Path,
     capture_id: str | None,
@@ -576,8 +618,8 @@ def forget(
 @click.option("--limit", type=int, default=10)
 def who(name: str, db: Path, limit: int) -> None:
     """Show what we know about a person across all sources."""
-    from secondbrain.store.kg import KnowledgeGraph
     from secondbrain.memory.entities import _stable_id
+    from secondbrain.store.kg import KnowledgeGraph
 
     kg = KnowledgeGraph(db_path=db.parent / "kg")
     pid = _stable_id(name)
@@ -588,21 +630,24 @@ def who(name: str, db: Path, limit: int) -> None:
     click.echo(f"Person: {name}  ({pid})")
     for f in facts:
         when = f["valid_from"].isoformat() if f["valid_from"] else "?"
-        click.echo(
-            f"  [{f['importance']:>4.1f}] {when}  {f['content'][:120]}"
-        )
+        click.echo(f"  [{f['importance']:>4.1f}] {when}  {f['content'][:120]}")
 
 
 @main.command()
 @click.option("--db", type=click.Path(path_type=Path), default=DEFAULT_DB)
 @click.option("--period", type=click.Choice(["day", "week", "month"]), default="day")
 @click.option("--day", type=str, default=None, help="ISO date (default: today UTC)")
-@click.option("--llm", is_flag=True, help="Synthesize themes via actants LLM (Ollama) instead of keyword counter")
+@click.option(
+    "--llm",
+    is_flag=True,
+    help="Synthesize themes via actants LLM (Ollama) instead of keyword counter",
+)
 @click.option("--llm-model", default=None, help="Override the actants LLM model")
 def digest(db: Path, period: str, day: str | None, llm: bool, llm_model: str | None) -> None:
     """Render the reflection digest for a period."""
     from datetime import date as date_cls
     from datetime import datetime as dt
+
     from secondbrain.memory.digest import (
         render,
         use_actants_synthesizer,
@@ -621,7 +666,7 @@ def digest(db: Path, period: str, day: str | None, llm: bool, llm_model: str | N
         use_heuristic_synthesizer()
     click.echo(f"Digest [{digest.period}] {digest.period_start.isoformat()}")
     click.echo(f"  importance_sum: {digest.importance_sum:.1f}")
-    click.echo(f"  themes:")
+    click.echo("  themes:")
     for t in digest.themes:
         click.echo(f"    - {t}")
     if digest.broken_promises:
@@ -715,10 +760,7 @@ def sync_push(folder: Path, db: Path, no_encryption: bool) -> None:
     from secondbrain.store.oltp import StoreConfig, open_encrypted, open_unencrypted
     from secondbrain.sync.orchestrator import push as push_records
 
-    if no_encryption:
-        oltp = open_unencrypted(db)
-    else:
-        oltp = open_encrypted(StoreConfig(db_path=db))
+    oltp = open_unencrypted(db) if no_encryption else open_encrypted(StoreConfig(db_path=db))
     kg = KnowledgeGraph(db_path=db.parent / "kg")
     backend = _sync_backend(folder)
     result = push_records(kg=kg, oltp=oltp, backend=backend)
@@ -748,6 +790,7 @@ def sync_status(folder: Path) -> None:
     """Show backend status (folder, blobs present, peers seen)."""
     backend = _sync_backend(folder)
     import json as _j
+
     click.echo(_j.dumps(backend.status(), indent=2))
 
 
@@ -804,7 +847,7 @@ def install_agent(db: Path, stub_embedder: bool, extra_args: tuple[str, ...]) ->
     try:
         path = install(spec)
     except RuntimeError as e:
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
     click.echo(f"installed launchd agent at {path}")
     click.echo("logs: ~/.secondbrain/logs/secondbrain.{out,err}.log")
     click.echo("uninstall: secondbrain uninstall-agent")
@@ -871,7 +914,9 @@ def restore(archive_path: Path, db: Path, force: bool) -> None:
     help="Open DB unencrypted (dev/tests only)",
 )
 @click.option("--stub-embedder", is_flag=True)
-@click.option("--llm", is_flag=True, help="Route importance + commitments through actants LLM (Ollama)")
+@click.option(
+    "--llm", is_flag=True, help="Route importance + commitments through actants LLM (Ollama)"
+)
 @click.option("--llm-model", default=None, help="Override the actants LLM model")
 def run_synthetic(
     db: Path,

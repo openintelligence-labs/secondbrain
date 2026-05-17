@@ -11,12 +11,12 @@ the device — `hevc_frame` and `audio_chunk` are categorically blocked.
 Cursor storage: a tiny `sync_cursor` table in the OLTP DB. One row per
 backend name. Created on first push.
 """
+
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import structlog
 
@@ -52,7 +52,7 @@ def _read_cursor(oltp: sqlite3.Connection, backend_name: str) -> float:
 
 def _write_cursor(oltp: sqlite3.Connection, backend_name: str, ts: float) -> None:
     _ensure_cursor_table(oltp)
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     oltp.execute(
         "INSERT INTO sync_cursor(backend, last_ingested_at, updated_at) "
         "VALUES (?, ?, ?) "
@@ -83,7 +83,7 @@ def push(
 
     # Walk Kùzu for memories ingested after cursor. Kùzu stores TIMESTAMP as
     # microseconds since epoch — convert.
-    cursor_us = int(cursor * 1_000_000) if cursor else 0
+    int(cursor * 1_000_000) if cursor else 0
 
     pushed = 0
     skipped = 0
@@ -96,7 +96,7 @@ def push(
         "RETURN m.id, m.type, m.content, m.valid_from, m.valid_to, "
         "m.ingested_at, m.importance, m.decay "
         "ORDER BY m.ingested_at",
-        {"cursor_iso": datetime.fromtimestamp(cursor, tz=timezone.utc).isoformat()},
+        {"cursor_iso": datetime.fromtimestamp(cursor, tz=UTC).isoformat()},
     )
     while rows.has_next():
         mid, mtype, content, vf, vt, ig, imp, decay = rows.get_next()
@@ -117,7 +117,7 @@ def push(
         backend.push(kind, payload)
         pushed += 1
         if ig is not None:
-            ig_ts = ig.replace(tzinfo=timezone.utc).timestamp() if ig.tzinfo is None else ig.timestamp()
+            ig_ts = ig.replace(tzinfo=UTC).timestamp() if ig.tzinfo is None else ig.timestamp()
             if ig_ts > new_cursor:
                 new_cursor = ig_ts
 
@@ -140,7 +140,7 @@ def pull(*, kg: KnowledgeGraph, backend: SyncBackend) -> PullResult:
     for kind, payload in backend.pull():
         try:
             if kind == "memory_node":
-                vf = _parse_iso(payload.get("valid_from")) or datetime.now(timezone.utc)
+                vf = _parse_iso(payload.get("valid_from")) or datetime.now(UTC)
                 vt = _parse_iso(payload.get("valid_to"))
                 ig = _parse_iso(payload.get("ingested_at")) or vf
                 kg.upsert_memory(
@@ -174,5 +174,5 @@ def _parse_iso(s: str | None) -> datetime | None:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt

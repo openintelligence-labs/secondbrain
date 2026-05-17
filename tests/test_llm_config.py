@@ -4,6 +4,7 @@ Pure config tests, no LLM calls. Verifies SECONDBRAIN_LLM_* are read,
 ACTANTS_* are honored as a fallback, and `apply_to_actants_env` mirrors
 the chosen values into the env var actants itself reads.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,13 +19,15 @@ def test_default_when_no_env_set():
 
 
 def test_secondbrain_env_takes_priority():
-    cfg = from_env(env={
-        "SECONDBRAIN_LLM_PROVIDER": "openai",
-        "SECONDBRAIN_LLM_MODEL": "gpt-4o-mini",
-        "SECONDBRAIN_LLM_BASE_URL": "https://api.openai.com/v1",
-        "SECONDBRAIN_LLM_API_KEY": "sk-test",
-        "ACTANTS_PROVIDER": "ollama",  # should be overridden
-    })
+    cfg = from_env(
+        env={
+            "SECONDBRAIN_LLM_PROVIDER": "openai",
+            "SECONDBRAIN_LLM_MODEL": "gpt-4o-mini",
+            "SECONDBRAIN_LLM_BASE_URL": "https://api.openai.com/v1",
+            "SECONDBRAIN_LLM_API_KEY": "sk-test",
+            "ACTANTS_PROVIDER": "ollama",  # should be overridden
+        }
+    )
     assert cfg.is_configured
     assert cfg.provider == "openai"
     assert cfg.model == "gpt-4o-mini"
@@ -33,11 +36,13 @@ def test_secondbrain_env_takes_priority():
 
 
 def test_actants_env_fallback_when_no_secondbrain_env():
-    cfg = from_env(env={
-        "ACTANTS_PROVIDER": "ollama",
-        "ACTANTS_MODEL": "llama3.2",
-        "ACTANTS_BASE_URL": "http://127.0.0.1:11434",
-    })
+    cfg = from_env(
+        env={
+            "ACTANTS_PROVIDER": "ollama",
+            "ACTANTS_MODEL": "llama3.2",
+            "ACTANTS_BASE_URL": "http://127.0.0.1:11434",
+        }
+    )
     assert cfg.provider == "ollama"
     assert cfg.model == "llama3.2"
     assert cfg.base_url == "http://127.0.0.1:11434"
@@ -46,8 +51,10 @@ def test_actants_env_fallback_when_no_secondbrain_env():
 
 def test_describe_redacts_api_key():
     cfg = LLMConfig(
-        provider="openai", model="gpt-4o-mini",
-        base_url=None, api_key="sk-supersecret",
+        provider="openai",
+        model="gpt-4o-mini",
+        base_url=None,
+        api_key="sk-supersecret",
     )
     desc = cfg.describe()
     assert "sk-supersecret" not in desc

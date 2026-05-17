@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from cryptography.exceptions import InvalidTag
 
 from secondbrain.store.crypt.age_files import (
     decrypt_from_path,
@@ -28,7 +29,7 @@ def test_encrypt_decrypt_round_trip(tmp_path: Path):
 def test_wrong_key_fails(tmp_path: Path):
     dest = tmp_path / "secret.bin"
     encrypt_to_path(b"hello", dest, key32=os.urandom(32))
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         decrypt_from_path(dest, key32=os.urandom(32))
 
 

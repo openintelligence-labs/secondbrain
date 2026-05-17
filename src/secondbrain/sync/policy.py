@@ -8,14 +8,15 @@ The architecture's locked contract:
 This module owns the *what may leave a device* decision. Backends call
 `should_sync(item)` before sending and refuse anything that returns False.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 
-class DeviceClass(str, Enum):
+class DeviceClass(StrEnum):
     LAPTOP = "laptop"
     PHONE = "phone"
     TABLET = "tablet"
@@ -23,16 +24,16 @@ class DeviceClass(str, Enum):
 
 
 SyncableKind = Literal[
-    "memory_node",          # MaRS node body
-    "kg_edge",              # KG relations
-    "person_alias",         # Person/Alias graph
-    "commitment",           # commitment node
-    "dense_embedding",      # 768-d Nomic vector
+    "memory_node",  # MaRS node body
+    "kg_edge",  # KG relations
+    "person_alias",  # Person/Alias graph
+    "commitment",  # commitment node
+    "dense_embedding",  # 768-d Nomic vector
     "audit_log_entry",
     # never-sync (deny by default):
     "hevc_frame",
     "audio_chunk",
-    "ocr_text",             # raw OCR can include sensitive screen content
+    "ocr_text",  # raw OCR can include sensitive screen content
 ]
 
 ALLOWED_BY_DEFAULT: set[SyncableKind] = {

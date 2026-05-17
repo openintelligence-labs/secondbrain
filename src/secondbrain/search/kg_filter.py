@@ -4,14 +4,14 @@ When the user query mentions a known entity (a Person.name we have in the KG),
 constrain the candidate set to captures that produced MemoryNodes mentioning
 that person. Falls back to plain hybrid when no entity hit.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 
-from secondbrain.search.hybrid import HybridSearcher, HybridHit
+from secondbrain.search.hybrid import HybridHit, HybridSearcher
 from secondbrain.store.kg import KnowledgeGraph
-
 
 _PERSON_NAME = re.compile(r"\b([A-Z][a-z]{2,15}(?:\s+[A-Z][a-z]{2,15})?)\b")
 
@@ -20,9 +20,7 @@ def find_person_in_query(query: str, kg: KnowledgeGraph) -> str | None:
     for cand in _PERSON_NAME.findall(query):
         slug = re.sub(r"[^a-z0-9]+", "_", cand.lower()).strip("_")
         pid = f"person:{slug}"
-        r = kg._conn.execute(
-            "MATCH (p:Person {id:$id}) RETURN p.id LIMIT 1", {"id": pid}
-        )
+        r = kg._conn.execute("MATCH (p:Person {id:$id}) RETURN p.id LIMIT 1", {"id": pid})
         if r.has_next():
             return pid
     return None

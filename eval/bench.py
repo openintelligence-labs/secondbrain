@@ -12,13 +12,14 @@ Two measurements:
 Run:
     .venv/bin/python eval/bench.py
 """
+
 from __future__ import annotations
 
 import json
 import statistics
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -82,6 +83,7 @@ def retrieval_bench(n_captures: int = 500, n_queries: int = 50) -> dict:
     workdir = ROOT / "_bench_workdir"
     if workdir.exists():
         import shutil
+
         shutil.rmtree(workdir)
     workdir.mkdir()
 
@@ -96,7 +98,7 @@ def retrieval_bench(n_captures: int = 500, n_queries: int = 50) -> dict:
         topic = topics[i % len(topics)]
         cap = Capture(
             id=f"bench_{i:04d}",
-            captured_at=datetime.now(timezone.utc),
+            captured_at=datetime.now(UTC),
             app_name="Bench",
             ax_text=f"document {i} about {topic} migration review status #{i % 17}",
         )
@@ -137,8 +139,7 @@ def reranker_bench(*, n_queries: int = 10, top_k: int = 30) -> dict:
         return {"loaded": False, "note": "model could not load (offline?)"}
 
     passages = [
-        f"document {i} about snowflake migration review status #{i % 7}"
-        for i in range(top_k)
+        f"document {i} about snowflake migration review status #{i % 7}" for i in range(top_k)
     ]
     # warmup
     rr.rerank("snowflake migration", passages, top_k=top_k)

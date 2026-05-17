@@ -3,6 +3,7 @@
 Renders a known string with PIL, runs the sidecar, asserts text contains
 the rendered string. macOS-only; skipped if the sidecar isn't built.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +13,6 @@ from pathlib import Path
 
 import pytest
 from PIL import Image, ImageDraw, ImageFont
-
 
 if sys.platform != "darwin":
     pytest.skip("macOS-only", allow_module_level=True)
@@ -60,9 +60,7 @@ def test_apple_vision_reads_rendered_text(tmp_path: Path):
     reason="Swift OCR sidecar not built",
 )
 def test_selector_prefers_ax_text(tmp_path: Path):
-    out = asyncio.run(
-        aselect_text(ax_text="hello from accessibility", image_path=None)
-    )
+    out = asyncio.run(aselect_text(ax_text="hello from accessibility", image_path=None))
     assert out.provider == "ax"
     assert out.text == "hello from accessibility"
 

@@ -4,22 +4,22 @@ Open wearable-import format. The receiver accepts JSONL records over BLE,
 HTTP, or file and yields `Capture` objects. Schema is documented inline at
 `MemoryStreamRecord` below.
 """
+
 from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from secondbrain.models import Capture
 
-
 CLOCK_SKEW_SECONDS = 30 * 24 * 3600
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def record_to_capture(record: dict[str, Any]) -> Capture | None:
@@ -28,7 +28,7 @@ def record_to_capture(record: dict[str, Any]) -> Capture | None:
     device = record.get("device")
     if rtype is None or ts is None or device is None:
         return None
-    captured_at = datetime.fromtimestamp(float(ts), tz=timezone.utc)
+    captured_at = datetime.fromtimestamp(float(ts), tz=UTC)
     if captured_at - _now() > timedelta(seconds=CLOCK_SKEW_SECONDS):
         return None  # spec conformance: refuse impossible-future records
 

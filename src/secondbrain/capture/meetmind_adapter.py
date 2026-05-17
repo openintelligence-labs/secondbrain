@@ -9,10 +9,11 @@ Voiceprints flow through the entity resolver: a MeetMind speaker_id
 is treated as an alias kind 'voiceprint' that the resolver can attach to a
 Person.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from secondbrain.indexing import Indexer
@@ -44,7 +45,7 @@ def ingest_meeting(
     """
     started = datetime.fromisoformat(meeting["started_at"].replace("Z", "+00:00"))
     if started.tzinfo is None:
-        started = started.replace(tzinfo=timezone.utc)
+        started = started.replace(tzinfo=UTC)
     title = meeting.get("title") or "(untitled meeting)"
     persons: list[str] = []
 
@@ -68,9 +69,7 @@ def ingest_meeting(
         indexer.index_capture(cap)
         pipe.ingest(cap)
         if speaker_id:
-            pid = resolver.resolve_or_create_person(
-                speaker_name, handle=speaker_id
-            )
+            pid = resolver.resolve_or_create_person(speaker_name, handle=speaker_id)
             if pid not in persons:
                 persons.append(pid)
 

@@ -1,4 +1,5 @@
 """Bridge to the `secondbrain-ocr` Swift sidecar (Apple Vision)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,16 +16,11 @@ log = structlog.get_logger()
 
 
 def _default_ocr_path() -> Path:
-    if (env := os.environ.get("SECONDBRAIN_OCR_BIN")):
+    if env := os.environ.get("SECONDBRAIN_OCR_BIN"):
         return Path(env)
     repo_root = Path(__file__).resolve().parents[3]
     candidate = (
-        repo_root
-        / "swift"
-        / "SecondBrainCapture"
-        / ".build"
-        / "release"
-        / "secondbrain-ocr"
+        repo_root / "swift" / "SecondBrainCapture" / ".build" / "release" / "secondbrain-ocr"
     )
     if candidate.exists():
         return candidate

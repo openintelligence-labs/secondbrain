@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
@@ -15,7 +15,7 @@ from secondbrain.store.vector import VectorStore
 def _cap(text: str, app: str = "Test") -> Capture:
     return Capture(
         id=text[:8].replace(" ", "_"),
-        captured_at=datetime.now(timezone.utc),
+        captured_at=datetime.now(UTC),
         app_name=app,
         ax_text=text,
     )

@@ -4,12 +4,14 @@ Heuristic synthesis baseline (LLM swap-in via `set_synthesizer`). Reads the
 KG's MemoryNodes for the period, surfaces themes (top-importance memories)
 plus broken commitments.
 """
+
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
-from typing import Callable, Literal
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Literal
 
 from secondbrain.memory.commitments import Commitment, is_broken
 from secondbrain.store.kg import KnowledgeGraph
@@ -30,14 +32,14 @@ class Digest:
 
 def _bounds(period: Period, day: date) -> tuple[datetime, datetime]:
     if period == "day":
-        start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+        start = datetime.combine(day, time.min, tzinfo=UTC)
         end = start + timedelta(days=1)
     elif period == "week":
         start_day = day - timedelta(days=day.weekday())
-        start = datetime.combine(start_day, time.min, tzinfo=timezone.utc)
+        start = datetime.combine(start_day, time.min, tzinfo=UTC)
         end = start + timedelta(days=7)
     elif period == "month":
-        start = datetime.combine(day.replace(day=1), time.min, tzinfo=timezone.utc)
+        start = datetime.combine(day.replace(day=1), time.min, tzinfo=UTC)
         if start.month == 12:
             end = start.replace(year=start.year + 1, month=1)
         else:
@@ -61,10 +63,7 @@ def heuristic_synthesize(memories: list[dict]) -> tuple[list[str], list[str]]:
     for m in memories:
         for tok in _topic_phrases(m["content"]):
             counter[tok] += 1
-    themes = [
-        f"{w} ({n})"
-        for w, n in counter.most_common(5)
-    ]
+    themes = [f"{w} ({n})" for w, n in counter.most_common(5)]
     followups: list[str] = []
     for m in sorted(memories, key=lambda x: x["importance"], reverse=True)[:3]:
         followups.append(m["content"][:120])
@@ -84,7 +83,8 @@ def set_synthesizer(fn: Callable[[list[dict]], tuple[list[str], list[str]]]) -> 
 import asyncio as _asyncio  # noqa: E402
 import threading as _threading  # noqa: E402
 
-from pydantic import BaseModel as _BaseModel, Field as _Field  # noqa: E402
+from pydantic import BaseModel as _BaseModel  # noqa: E402
+from pydantic import Field as _Field  # noqa: E402
 
 
 def _run_blocking(coro):
@@ -95,12 +95,14 @@ def _run_blocking(coro):
     except RuntimeError:
         return _asyncio.run(coro)
     import concurrent.futures
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
         return ex.submit(_asyncio.run, coro).result()
 
 
 class _DigestSynthesis(_BaseModel):
     """LLM output: themes + follow-ups, both human-readable strings."""
+
     themes: list[str] = _Field(
         default_factory=list,
         description="3–5 short prose phrases summarizing the day's topics.",
@@ -137,6 +139,7 @@ class _ActantsSynthesizer:
         with self._lock:
             if self._llm is None:
                 from actants import LLM
+
                 self._llm = LLM(model=self._model) if self._model else LLM()
         return self._llm
 
@@ -144,8 +147,7 @@ class _ActantsSynthesizer:
         if not memories:
             return [], []
         joined = "\n".join(
-            f"- [{m.get('importance', 0):.1f}] {m['content']}"
-            for m in memories[:60]
+            f"- [{m.get('importance', 0):.1f}] {m['content']}" for m in memories[:60]
         )
         prompt = _DIGEST_PROMPT.format(joined=joined)
         llm = self._ensure_llm()
@@ -181,11 +183,11 @@ def render(
     open_commitments: list[Commitment] | None = None,
     now: datetime | None = None,
 ) -> Digest:
-    day = day or datetime.now(timezone.utc).date()
+    day = day or datetime.now(UTC).date()
     start, end = _bounds(period, day)
     memories = kg.events_at(start, end, limit=200)
     themes, followups = _synthesizer(memories)
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     broken = []
     for c in open_commitments or []:
         if is_broken(c, now=now):

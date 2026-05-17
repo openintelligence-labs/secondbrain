@@ -1,13 +1,12 @@
 """--offline must engage the air-gap socket guard before any subcommand runs."""
-from __future__ import annotations
 
-import socket
+from __future__ import annotations
 
 import pytest
 from click.testing import CliRunner
 
 from secondbrain.cli import main
-from secondbrain.compliance.air_gap import AirGapViolation, disengage, is_engaged
+from secondbrain.compliance.air_gap import disengage, is_engaged
 
 
 @pytest.fixture(autouse=True)

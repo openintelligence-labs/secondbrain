@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
@@ -24,7 +24,7 @@ from secondbrain.store.kg import KnowledgeGraph
 
 
 def test_commitment_detect_friday():
-    now = datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc)  # Tuesday
+    now = datetime(2026, 5, 5, 14, 0, tzinfo=UTC)  # Tuesday
     out = heuristic_extract(
         "I'll send the design doc by Friday. Sam will review tomorrow.",
         capture_id="c1",
@@ -39,21 +39,27 @@ def test_commitment_detect_friday():
 
 def test_is_broken_only_for_open_past_due():
     past = Commitment(
-        id="x", content="...", owner_pid=None,
-        due_at=datetime(2026, 5, 1, tzinfo=timezone.utc), status="open",
+        id="x",
+        content="...",
+        owner_pid=None,
+        due_at=datetime(2026, 5, 1, tzinfo=UTC),
+        status="open",
     )
     closed = Commitment(
-        id="y", content="...", owner_pid=None,
-        due_at=datetime(2026, 5, 1, tzinfo=timezone.utc), status="done",
+        id="y",
+        content="...",
+        owner_pid=None,
+        due_at=datetime(2026, 5, 1, tzinfo=UTC),
+        status="done",
     )
-    now = datetime(2026, 5, 5, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 5, tzinfo=UTC)
     assert is_broken(past, now=now) is True
     assert is_broken(closed, now=now) is False
 
 
 def test_decay_high_importance_decays_slower():
-    ingested = datetime(2026, 5, 1, tzinfo=timezone.utc)
-    now = datetime(2026, 5, 6, tzinfo=timezone.utc)
+    ingested = datetime(2026, 5, 1, tzinfo=UTC)
+    now = datetime(2026, 5, 6, tzinfo=UTC)
     high = decay_factor(ingested_at=ingested, importance=8.0, now=now)
     low = decay_factor(ingested_at=ingested, importance=1.0, now=now)
     assert high > low
@@ -82,16 +88,20 @@ def test_digest_groups_themes_and_broken_promises(tmp_path: Path):
         linker=AMemLinker(embedder=StubEmbedder()),
         resolver=EntityResolver(kg=kg),
     )
-    today = datetime(2026, 5, 5, 12, 0, tzinfo=timezone.utc)
+    today = datetime(2026, 5, 5, 12, 0, tzinfo=UTC)
     pipe.ingest(
         Capture(
-            id="c1", captured_at=today, app_name="Slack",
+            id="c1",
+            captured_at=today,
+            app_name="Slack",
             ax_text="Sam Reed will ship the Snowflake migration by Friday.",
         )
     )
     pipe.ingest(
         Capture(
-            id="c2", captured_at=today + timedelta(hours=1), app_name="Linear",
+            id="c2",
+            captured_at=today + timedelta(hours=1),
+            app_name="Linear",
             ax_text="Stripe billing token expiry deadline review on Wednesday.",
         )
     )
@@ -104,8 +114,11 @@ def test_digest_groups_themes_and_broken_promises(tmp_path: Path):
         sources=["c1"],
     )
     digest = render(
-        kg, "day", day=today.date(),
-        open_commitments=[open_promise], now=today,
+        kg,
+        "day",
+        day=today.date(),
+        open_commitments=[open_promise],
+        now=today,
     )
     assert digest.period == "day"
     assert digest.period_start == today.date()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.models import Capture
@@ -12,7 +12,7 @@ def test_round_trip_capture(tmp_path: Path):
     conn = open_unencrypted(tmp_path / "test.db")
     cap = Capture(
         id="01HZZZZZZZZZZZZZZZZZZZZZZZZZ",
-        captured_at=datetime.now(timezone.utc),
+        captured_at=datetime.now(UTC),
         app_name="Code",
         app_bundle_id="com.microsoft.VSCode",
         window_title="README.md — secondbrain",

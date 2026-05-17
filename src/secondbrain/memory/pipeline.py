@@ -3,6 +3,7 @@
 Wires the extractor, importance scorer, A-MEM linker, and entity resolver
 into one entry point the daemon can call once per persisted capture.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -29,9 +30,9 @@ class PipelineMetrics:
 
     linker_failures: int = 0
     commitment_failures: int = 0
-    dropped_chrome: int = 0     # text became empty after strip_chrome
-    dropped_thin: int = 0       # didn't pass looks_substantive
-    dropped_dup_ocr: int = 0    # identical to a recent capture's content
+    dropped_chrome: int = 0  # text became empty after strip_chrome
+    dropped_thin: int = 0  # didn't pass looks_substantive
+    dropped_dup_ocr: int = 0  # identical to a recent capture's content
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -115,15 +116,11 @@ class MemoryPipeline:
             ingested_at=memory.ingested_at,
             importance=memory.importance,
         )
-        self.kg.link_memory_to_capture(
-            memory.id, capture.id, ingested_at=memory.ingested_at
-        )
+        self.kg.link_memory_to_capture(memory.id, capture.id, ingested_at=memory.ingested_at)
 
         # 2. Resolve persons + add MENTIONS edges
         for name in memory.persons:
-            person_id = self.resolver.resolve_from_text(
-                memory.content, default_name=name
-            )
+            person_id = self.resolver.resolve_from_text(memory.content, default_name=name)
             self.kg.link_memory_to_person(
                 memory.id,
                 person_id,

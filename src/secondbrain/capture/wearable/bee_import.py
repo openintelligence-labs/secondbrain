@@ -1,4 +1,5 @@
 """Bee orphaned-data importer."""
+
 from __future__ import annotations
 
 import json

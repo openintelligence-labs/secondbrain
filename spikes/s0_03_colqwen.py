@@ -11,6 +11,7 @@ Note: model weights are several GB and only download once. We use
 `vidore/colqwen2.5-v0.2`, the canonical ColQwen2.5 checkpoint on the ViDoRe
 team's HF.
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,9 +21,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _runner import record  # noqa: E402
-
 import torch  # noqa: E402
+from _runner import record  # noqa: E402
 from PIL import Image  # noqa: E402
 
 CHECKPOINT = "vidore/colqwen2.5-v0.2"

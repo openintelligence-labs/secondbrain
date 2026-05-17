@@ -13,17 +13,17 @@ extractors land with the LLM reflection loop.
 Provenance: every node carries a `sources=[capture_id]` list so cascading
 delete (`memory.forget`) is correct from day 1.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
 from secondbrain.memory.importance import score as importance_score
 from secondbrain.models import Capture
-
 
 MemoryType = Literal["episodic", "semantic", "procedural", "commitment"]
 
@@ -44,9 +44,25 @@ class ExtractedMemory:
 # Heuristic person-mention extractor (LLM-backed later).
 _NAME_RE = re.compile(r"\b([A-Z][a-z]{2,15})(?:\s+([A-Z][a-z]{2,15}))?\b")
 _STOPWORD_NAMES = {
-    "Snowflake", "Kafka", "Stripe", "Slack", "Notion", "Linear", "Jira",
-    "Datadog", "Github", "Github.com", "Monday", "Tuesday", "Wednesday",
-    "Thursday", "Friday", "Saturday", "Sunday", "Apple", "Apple.com",
+    "Snowflake",
+    "Kafka",
+    "Stripe",
+    "Slack",
+    "Notion",
+    "Linear",
+    "Jira",
+    "Datadog",
+    "Github",
+    "Github.com",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+    "Apple",
+    "Apple.com",
 }
 
 
@@ -61,9 +77,7 @@ def _candidate_names(text: str) -> list[str]:
     return seen
 
 
-def extract(
-    capture: Capture, *, importance_floor: float = 1.0
-) -> ExtractedMemory | None:
+def extract(capture: Capture, *, importance_floor: float = 1.0) -> ExtractedMemory | None:
     """Convert a single Capture into one episodic MemoryNode (or None if dull)."""
     text = (capture.ax_text or capture.ocr_text or "").strip()
     if not text:
@@ -73,14 +87,14 @@ def extract(
         return None
     captured_at = capture.captured_at
     if captured_at.tzinfo is None:
-        captured_at = captured_at.replace(tzinfo=timezone.utc)
+        captured_at = captured_at.replace(tzinfo=UTC)
     return ExtractedMemory(
         id=uuid4().hex,
         type="episodic",
         content=text,
         valid_from=captured_at,
         valid_to=None,
-        ingested_at=datetime.now(timezone.utc),
+        ingested_at=datetime.now(UTC),
         importance=imp,
         sources=[capture.id],
         persons=_candidate_names(text),

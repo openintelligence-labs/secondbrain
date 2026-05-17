@@ -8,6 +8,7 @@ and they exchange short-term sync keys. Recovery phrase is the user's
 This module ships the cryptographic primitives (fingerprints, pseudo-recovery
 word list) so the pairing UX can wire them up against a real Tauri front-end.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,14 +20,36 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PublicKey,
 )
 
-
 # Tiny BIP-39-style word list; replace with the canonical 2048-word list when
 # we ship the Tauri pairing UX.
-_WORDS = (
-    "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima "
-    "mike november oscar papa quebec romeo sierra tango uniform victor whiskey "
-    "xray yankee zulu"
-).split()
+_WORDS = [
+    "alpha",
+    "bravo",
+    "charlie",
+    "delta",
+    "echo",
+    "foxtrot",
+    "golf",
+    "hotel",
+    "india",
+    "juliet",
+    "kilo",
+    "lima",
+    "mike",
+    "november",
+    "oscar",
+    "papa",
+    "quebec",
+    "romeo",
+    "sierra",
+    "tango",
+    "uniform",
+    "victor",
+    "whiskey",
+    "xray",
+    "yankee",
+    "zulu",
+]
 
 
 @dataclass
@@ -35,7 +58,7 @@ class DeviceIdentity:
     public_key_bytes: bytes
 
     @classmethod
-    def fresh(cls) -> "DeviceIdentity":
+    def fresh(cls) -> DeviceIdentity:
         sk = X25519PrivateKey.generate()
         pk = sk.public_key().public_bytes_raw()
         return cls(private_key=sk, public_key_bytes=pk)

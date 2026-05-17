@@ -4,12 +4,13 @@ Detects first-person promises ("I'll send you the doc by Friday", "we'll
 deploy on Tuesday") and emits typed `Commitment` records. Heuristic regex
 baseline; LLM swap-in over `set_extractor()` later.
 """
+
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta, timezone
-from typing import Callable
+from datetime import UTC, datetime, time, timedelta
 from uuid import uuid4
 
 
@@ -42,30 +43,35 @@ _DAY_RE = re.compile(
 )
 _DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 _DAY_NAMES = {
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-    "friday": 4, "saturday": 5, "sunday": 6,
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
 }
 
 
 def _parse_due(text: str, *, now: datetime) -> datetime | None:
     m = _DATE_RE.search(text)
     if m:
-        return datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=UTC)
     m = _DAY_RE.search(text)
     if not m:
         return None
     word = m.group(1).lower()
     if word == "today":
-        return datetime.combine(now.date(), time(17, 0), tzinfo=timezone.utc)
+        return datetime.combine(now.date(), time(17, 0), tzinfo=UTC)
     if word == "tonight":
-        return datetime.combine(now.date(), time(20, 0), tzinfo=timezone.utc)
+        return datetime.combine(now.date(), time(20, 0), tzinfo=UTC)
     if word == "tomorrow":
-        return datetime.combine(now.date() + timedelta(days=1), time(17, 0), tzinfo=timezone.utc)
+        return datetime.combine(now.date() + timedelta(days=1), time(17, 0), tzinfo=UTC)
     target = _DAY_NAMES[word]
     delta = (target - now.weekday()) % 7
     if delta == 0:
         delta = 7
-    return datetime.combine(now.date() + timedelta(days=delta), time(17, 0), tzinfo=timezone.utc)
+    return datetime.combine(now.date() + timedelta(days=delta), time(17, 0), tzinfo=UTC)
 
 
 def heuristic_extract(
@@ -77,7 +83,7 @@ def heuristic_extract(
 ) -> list[Commitment]:
     if not text:
         return []
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     out: list[Commitment] = []
     for sentence in re.split(r"(?<=[.!?])\s+", text):
         if not _PROMISE_RE.search(sentence):
@@ -108,7 +114,8 @@ def set_extractor(fn: Callable[..., list[Commitment]]) -> None:
 import asyncio as _asyncio  # noqa: E402  (avoid shadowing top-of-file imports)
 import threading as _threading  # noqa: E402
 
-from pydantic import BaseModel as _BaseModel, Field as _Field  # noqa: E402
+from pydantic import BaseModel as _BaseModel  # noqa: E402
+from pydantic import Field as _Field  # noqa: E402
 
 
 def _run_blocking(coro):
@@ -119,12 +126,14 @@ def _run_blocking(coro):
     except RuntimeError:
         return _asyncio.run(coro)
     import concurrent.futures
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
         return ex.submit(_asyncio.run, coro).result()
 
 
 class _LLMCommitment(_BaseModel):
     """One commitment as the LLM sees it."""
+
     sentence: str = _Field(description="The exact sentence committing to the action.")
     due_iso: str | None = _Field(
         default=None,
@@ -162,6 +171,7 @@ class _ActantsExtractor:
         with self._lock:
             if self._llm is None:
                 from actants import LLM
+
                 self._llm = LLM(model=self._model) if self._model else LLM()
         return self._llm
 
@@ -175,7 +185,7 @@ class _ActantsExtractor:
     ) -> list[Commitment]:
         if not text or not text.strip():
             return []
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         llm = self._ensure_llm()
 
         prompt = _LLM_PROMPT.format(text=text, year=now.year)
@@ -189,9 +199,7 @@ class _ActantsExtractor:
         try:
             result = _run_blocking(_go())
         except Exception:
-            return heuristic_extract(
-                text, capture_id=capture_id, owner_pid=owner_pid, now=now
-            )
+            return heuristic_extract(text, capture_id=capture_id, owner_pid=owner_pid, now=now)
 
         out: list[Commitment] = []
         for item in result.items:
@@ -200,7 +208,7 @@ class _ActantsExtractor:
                 try:
                     due = datetime.fromisoformat(item.due_iso.replace("Z", "+00:00"))
                     if due.tzinfo is None:
-                        due = due.replace(tzinfo=timezone.utc)
+                        due = due.replace(tzinfo=UTC)
                 except (TypeError, ValueError):
                     due = None
             out.append(
@@ -231,8 +239,4 @@ def extract(*args, **kwargs) -> list[Commitment]:
 
 
 def is_broken(c: Commitment, *, now: datetime) -> bool:
-    return (
-        c.status == "open"
-        and c.due_at is not None
-        and c.due_at < now
-    )
+    return c.status == "open" and c.due_at is not None and c.due_at < now

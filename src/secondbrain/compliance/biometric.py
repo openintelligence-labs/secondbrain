@@ -9,6 +9,7 @@ Off by default. Opt-in via env var. Always succeeds (no-op) on non-macOS or
 when the helper binary is unbuilt — that's the v1 escape hatch; v1.1 may
 make it a hard requirement when configured.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,12 +22,7 @@ from pathlib import Path
 def _auth_binary() -> Path | None:
     repo_root = Path(__file__).resolve().parents[3]
     candidate = (
-        repo_root
-        / "swift"
-        / "SecondBrainCapture"
-        / ".build"
-        / "release"
-        / "secondbrain-auth"
+        repo_root / "swift" / "SecondBrainCapture" / ".build" / "release" / "secondbrain-auth"
     )
     if candidate.exists():
         return candidate
@@ -69,6 +65,4 @@ def confirm(reason: str) -> bool:
     )
     if proc.returncode == 0:
         return True
-    raise BiometricDenied(
-        f"biometric auth refused (rc={proc.returncode}): {proc.stderr.strip()}"
-    )
+    raise BiometricDenied(f"biometric auth refused (rc={proc.returncode}): {proc.stderr.strip()}")

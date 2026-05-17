@@ -7,6 +7,7 @@ Vector and graph stores live in their own modules.
 Cipher swap note: when SQLite3 Multiple Ciphers ships a py3.13 wheel, the
 import line below changes; the public API does not.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,9 +21,7 @@ import keyring
 try:
     from sqlcipher3 import dbapi2 as sqlcipher  # type: ignore[import-not-found]
 except ImportError as e:  # pragma: no cover - dependency check
-    raise RuntimeError(
-        "sqlcipher3-wheels not installed; see spikes/requirements.txt"
-    ) from e
+    raise RuntimeError("sqlcipher3-wheels not installed; see spikes/requirements.txt") from e
 
 
 CAPTURES_SCHEMA = """
@@ -100,8 +99,7 @@ def _integrity_check(conn) -> None:
     row = conn.execute("PRAGMA integrity_check").fetchone()
     if not row or row[0] != "ok":
         raise IntegrityCheckFailed(
-            f"PRAGMA integrity_check returned {row!r}. "
-            "Restore from a recent `secondbrain backup`."
+            f"PRAGMA integrity_check returned {row!r}. Restore from a recent `secondbrain backup`."
         )
 
 
@@ -152,9 +150,7 @@ def open_encrypted(cfg: StoreConfig, *, check_integrity: bool = True) -> Connect
     return conn  # type: ignore[return-value]
 
 
-def open_unencrypted(
-    path: Path | str, *, check_integrity: bool = True
-) -> sqlite3.Connection:
+def open_unencrypted(path: Path | str, *, check_integrity: bool = True) -> sqlite3.Connection:
     """For tests that don't need encryption. Production code must use `open_encrypted`.
 
     `check_same_thread=False`: the aiohttp gateway runs in a different

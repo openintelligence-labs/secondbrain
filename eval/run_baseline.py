@@ -15,6 +15,7 @@ Outputs:
     eval/baseline_results.json  (single run)
     eval/baseline_matrix.json   (matrix run)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,12 +38,12 @@ def _build(embedder_kind: str, *, slot: str):
     from secondbrain.memory.amem import AMemLinker
     from secondbrain.memory.entities import EntityResolver
     from secondbrain.memory.pipeline import MemoryPipeline
+    from secondbrain.models import Capture
     from secondbrain.search.hybrid import HybridSearcher
     from secondbrain.search.kg_filter import KGAwareSearcher
     from secondbrain.store.kg import KnowledgeGraph
     from secondbrain.store.text_index import TextIndex
     from secondbrain.store.vector import VectorStore
-    from secondbrain.models import Capture
 
     workdir = ROOT / f"_workdir_{slot}"
     if workdir.exists():
@@ -88,8 +89,6 @@ def _build(embedder_kind: str, *, slot: str):
 
 def _run(embedder_kind: str, *, rerank: bool, slot: str) -> dict:
     from secondbrain.eval.longmemeval import run as run_lme
-    from secondbrain.search.kg_filter import KGAwareSearcher
-    from secondbrain.search.hybrid import HybridSearcher
 
     searcher, embedder_name, n_caps = _build(embedder_kind, slot=slot)
 
@@ -148,12 +147,14 @@ def main() -> None:
         default=None,
         help="Override the actants LLM model (e.g. gpt-oss:20b-cloud)",
     )
-    ap.add_argument("--matrix", action="store_true",
-                    help="run all 4 cells: stub|nomic × rerank-off|on")
+    ap.add_argument(
+        "--matrix", action="store_true", help="run all 4 cells: stub|nomic × rerank-off|on"
+    )
     args = ap.parse_args()
 
     if args.llm_scorer:
         from secondbrain.memory.importance import use_actants_scorer
+
         use_actants_scorer(model=args.llm_model)
 
     if args.matrix:
@@ -163,12 +164,22 @@ def main() -> None:
                 slot = f"{emb}_{'rr' if rr else 'norr'}"
                 cell = _run(emb, rerank=rr, slot=slot)
                 cells.append(cell)
-                print(json.dumps({k: cell[k] for k in (
-                    "embedder", "rerank", "overall_accuracy", "by_axis_accuracy",
-                    "elapsed_seconds")}, indent=2))
-        (ROOT / "baseline_matrix.json").write_text(
-            json.dumps(cells, indent=2) + "\n"
-        )
+                print(
+                    json.dumps(
+                        {
+                            k: cell[k]
+                            for k in (
+                                "embedder",
+                                "rerank",
+                                "overall_accuracy",
+                                "by_axis_accuracy",
+                                "elapsed_seconds",
+                            )
+                        },
+                        indent=2,
+                    )
+                )
+        (ROOT / "baseline_matrix.json").write_text(json.dumps(cells, indent=2) + "\n")
         return
 
     out = _run(args.embedder, rerank=args.rerank, slot="single")

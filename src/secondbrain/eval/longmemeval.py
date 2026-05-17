@@ -19,6 +19,7 @@ Scoring:
     `rrf_score` exceeds the threshold (i.e. the system correctly refused
     to confidently surface an off-topic capture).
 """
+
 from __future__ import annotations
 
 import json
@@ -58,9 +59,7 @@ def run(
         rec = json.loads(line)
         axis = rec.get("axis", "?")
         expected = set(rec.get("expected_capture_ids", []))
-        threshold = float(
-            rec.get("abstention_score_threshold", DEFAULT_ABSTENTION_THRESHOLD)
-        )
+        threshold = float(rec.get("abstention_score_threshold", DEFAULT_ABSTENTION_THRESHOLD))
         results = searcher.search(rec["query"], limit=k)
         retrieved = {h.capture_id for h in results}
 

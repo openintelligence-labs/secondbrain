@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from secondbrain.compliance.air_gap import AirGapViolation, airgap, engage, disengage
+from secondbrain.compliance.air_gap import AirGapViolation, airgap, disengage, engage
 from secondbrain.compliance.audit import AuditLog
 
 

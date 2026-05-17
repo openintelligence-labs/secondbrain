@@ -3,6 +3,7 @@
 Wires the embedder, chunker, vector store, and text index together in one
 place so the daemon and CLI can share the exact same indexing path.
 """
+
 from __future__ import annotations
 
 import time

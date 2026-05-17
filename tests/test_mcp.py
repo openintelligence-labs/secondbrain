@@ -4,13 +4,13 @@ Drives every one of the 7 tools through the in-process router. No live
 transport — that lands when we point Claude Desktop at a built bundle and
 record an end-to-end demo.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.api.mcp_server import (
-    TOOL_DEFS,
     call,
     list_tools,
     make_default_context,
@@ -22,7 +22,6 @@ from secondbrain.memory.entities import EntityResolver
 from secondbrain.memory.pipeline import MemoryPipeline
 from secondbrain.models import Capture
 from secondbrain.store.captures import insert as insert_capture
-from secondbrain.store.oltp import open_unencrypted
 
 
 def _seed(tmp_path: Path):
@@ -34,12 +33,20 @@ def _seed(tmp_path: Path):
         linker=AMemLinker(embedder=StubEmbedder()),
         resolver=EntityResolver(kg=ctx.kg),
     )
-    when = datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc)
+    when = datetime(2026, 5, 5, 14, 0, tzinfo=UTC)
     captures = [
-        Capture(id="c1", captured_at=when, app_name="Slack",
-                ax_text="Sam Reed will ship Snowflake migration by Friday."),
-        Capture(id="c2", captured_at=when, app_name="Linear",
-                ax_text="Stripe billing token expiry needs a hotfix."),
+        Capture(
+            id="c1",
+            captured_at=when,
+            app_name="Slack",
+            ax_text="Sam Reed will ship Snowflake migration by Friday.",
+        ),
+        Capture(
+            id="c2",
+            captured_at=when,
+            app_name="Linear",
+            ax_text="Stripe billing token expiry needs a hotfix.",
+        ),
     ]
     oltp = ctx.oltp
     for cap in captures:
@@ -92,9 +99,7 @@ def test_forget_via_mcp(tmp_path: Path):
     out = call(ctx, "memory.forget", {"capture_id": "c1", "reason": "user request"})
     assert out["deleted"] >= 1
     # Audit log row exists
-    rows = ctx.oltp.execute(
-        "SELECT action FROM audit_log WHERE action='forget'"
-    ).fetchall()
+    rows = ctx.oltp.execute("SELECT action FROM audit_log WHERE action='forget'").fetchall()
     assert len(rows) >= 1
 
 

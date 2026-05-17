@@ -18,6 +18,7 @@ rely on the operator running `launchctl unload …` first).
 Format choice: plain tar.gz with a manifest. No external deps beyond stdlib.
 Compression matters less than portability for a personal-data tool.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,11 +27,10 @@ import json
 import shutil
 import tarfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.store.oltp import CURRENT_SCHEMA_VERSION
-
 
 MANIFEST_NAME = "manifest.json"
 MANIFEST_SCHEMA = "secondbrain.backup.v1"
@@ -58,7 +58,7 @@ class BackupManifest:
         )
 
     @classmethod
-    def from_json(cls, blob: str) -> "BackupManifest":
+    def from_json(cls, blob: str) -> BackupManifest:
         data = json.loads(blob)
         if data.get("schema") != MANIFEST_SCHEMA:
             raise ValueError(f"unknown manifest schema: {data.get('schema')!r}")
@@ -124,7 +124,7 @@ def make_backup(
 
     manifest = BackupManifest(
         schema=MANIFEST_SCHEMA,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         secondbrain_version=secondbrain_version,
         schema_version=CURRENT_SCHEMA_VERSION,
         files=files_hash,
@@ -176,11 +176,7 @@ def restore_backup(
             f"CURRENT_SCHEMA_VERSION={CURRENT_SCHEMA_VERSION}. Upgrade SecondBrain."
         )
 
-    existing = [
-        base / rel
-        for rel in manifest.files
-        if (base / rel).exists()
-    ]
+    existing = [base / rel for rel in manifest.files if (base / rel).exists()]
     if existing and not force:
         raise FileExistsError(
             f"refusing to overwrite {len(existing)} existing path(s) under {base}. "
@@ -199,9 +195,7 @@ def restore_backup(
             declared = set(manifest.files.keys()) | {MANIFEST_NAME}
             for member in tar.getmembers():
                 if member.name not in declared:
-                    raise ValueError(
-                        f"archive contains undeclared entry: {member.name!r}"
-                    )
+                    raise ValueError(f"archive contains undeclared entry: {member.name!r}")
                 if member.name == MANIFEST_NAME:
                     continue
                 # Reject absolute paths and ".." traversal.
@@ -215,9 +209,7 @@ def restore_backup(
         for rel, want in manifest.files.items():
             got = _sha256_file(staging / rel)
             if got != want:
-                raise ValueError(
-                    f"hash mismatch on {rel}: got {got[:12]}…, want {want[:12]}…"
-                )
+                raise ValueError(f"hash mismatch on {rel}: got {got[:12]}…, want {want[:12]}…")
 
         # Atomic-ish swap: move staged files in. If any target exists with
         # force=True, replace it.

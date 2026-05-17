@@ -3,6 +3,7 @@
 Recipe:
     tantivy BM25 ⊕ LanceDB cosine → RRF k=60 → top-50 → (optional) reranker
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

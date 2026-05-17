@@ -1,4 +1,5 @@
 """Linux AT-SPI2 AX walker (skeleton)."""
+
 from __future__ import annotations
 
 import sys

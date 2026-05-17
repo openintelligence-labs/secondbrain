@@ -6,17 +6,18 @@ hit /status to confirm the daemon is attached, then hit /daemon to toggle
 paused and verify the daemon's metrics flipped. This is the exact path the
 tray "Pause Capture" button takes.
 """
+
 from __future__ import annotations
 
 import asyncio
 import socket
 from pathlib import Path
 
-import pytest
 from aiohttp import web
 
 from secondbrain.api.http import GatewayConfig, make_app
-from secondbrain.capture.frame import Frame, SyntheticFrameSource, now as _now
+from secondbrain.capture.frame import Frame, SyntheticFrameSource
+from secondbrain.capture.frame import now as _now
 from secondbrain.daemon import Daemon, DaemonConfig
 
 
@@ -31,6 +32,7 @@ def _free_port() -> int:
 def _synthetic_frame(i: int) -> Frame:
     import numpy as np
     from PIL import Image
+
     rng = np.random.default_rng(i)
     arr = rng.integers(0, 255, size=(48, 64, 3), dtype=np.uint8)
     return Frame(
@@ -68,6 +70,7 @@ async def test_ui_live_daemon_pause_resume(tmp_path: Path) -> None:
 
     try:
         import aiohttp
+
         async with aiohttp.ClientSession() as s:
             # /status should report a daemon attached and running.
             r = await s.get(f"http://127.0.0.1:{port}/status")

@@ -1,11 +1,10 @@
 """Sync orchestrator: push walks new memories, pull applies them, cursor advances."""
+
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
-import pytest
 
 from secondbrain.store.kg import KnowledgeGraph
 from secondbrain.store.oltp import open_unencrypted
@@ -39,7 +38,7 @@ def test_push_pull_roundtrip(tmp_path: Path):
     # Device A: write memories, push.
     kg_a = KnowledgeGraph(db_path=tmp_path / "A" / "kg")
     oltp_a = open_unencrypted(tmp_path / "A" / "sb.db")
-    start = datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 5, 12, 12, 0, tzinfo=UTC)
     _seed_kg(kg_a, 3, start)
     backend_a = SyncthingBackend(folder=str(folder), psk=psk, device_id="A")
     result = push(kg=kg_a, oltp=oltp_a, backend=backend_a)
@@ -64,7 +63,7 @@ def test_cursor_advances_so_repush_is_empty(tmp_path: Path):
     folder.mkdir()
     kg = KnowledgeGraph(db_path=tmp_path / "kg")
     oltp = open_unencrypted(tmp_path / "sb.db")
-    _seed_kg(kg, 2, datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc))
+    _seed_kg(kg, 2, datetime(2026, 5, 12, 12, 0, tzinfo=UTC))
     backend = SyncthingBackend(folder=str(folder), psk=psk, device_id="A")
 
     r1 = push(kg=kg, oltp=oltp, backend=backend)

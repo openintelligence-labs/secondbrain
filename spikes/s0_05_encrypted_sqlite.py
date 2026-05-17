@@ -13,6 +13,7 @@ Pass criteria:
 - Round-trip a row
 - Re-open with the wrong key fails
 """
+
 from __future__ import annotations
 
 import os
@@ -22,12 +23,12 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _runner import record  # noqa: E402
-
 import keyring  # noqa: E402
+from _runner import record  # noqa: E402
 
 try:
     from sqlcipher3 import dbapi2 as sqlcipher  # type: ignore[import-not-found]
+
     BACKEND = f"sqlcipher3-wheels (AES-256, sqlite {sqlcipher.sqlite_version})"
 except Exception as e:
     print(f"sqlcipher3 import failed: {e}")

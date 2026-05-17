@@ -1,4 +1,5 @@
 """Tiny spike result helper. Each spike imports `record(...)` and calls it once."""
+
 from __future__ import annotations
 
 import json

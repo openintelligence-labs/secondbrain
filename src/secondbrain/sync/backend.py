@@ -1,4 +1,5 @@
 """Pluggable sync backends."""
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,7 @@ class InMemoryBackend:
         out, self._inbox = self._inbox, []
         return out
 
-    def deliver_to_peer(self, peer: "InMemoryBackend") -> None:
+    def deliver_to_peer(self, peer: InMemoryBackend) -> None:
         peer._inbox.extend(self._outbox)
         self._outbox.clear()
 
@@ -90,11 +91,9 @@ class SyncthingBackend:
 
     def _load_seen(self) -> None:
         if self._seen_path.exists():
-            self._seen_cache = set(
-                line.strip()
-                for line in self._seen_path.read_text().splitlines()
-                if line.strip()
-            )
+            self._seen_cache = {
+                line.strip() for line in self._seen_path.read_text().splitlines() if line.strip()
+            }
 
     def _mark_seen(self, name: str) -> None:
         self._seen_cache.add(name)

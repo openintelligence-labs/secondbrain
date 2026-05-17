@@ -7,6 +7,7 @@ Codex, Windsurf, Gemini CLI) can attach over stdio.
 The transport-agnostic tool implementations live in `api/mcp_server.py`
 and are unit-tested there; this file is the thin stdio shell.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,7 @@ def build_app(
     use_encryption: bool = False,
 ) -> FastMCP:
     """Construct a FastMCP app exposing all 7 SecondBrain tools."""
-    ctx: MCPContext = make_default_context(
-        db=db, use_stub_embedder=use_stub_embedder
-    )
+    ctx: MCPContext = make_default_context(db=db, use_stub_embedder=use_stub_embedder)
     mcp = FastMCP("secondbrain")
 
     # The architecture's 7 tools. We register them dynamically so the schema
@@ -44,6 +43,7 @@ def build_app(
             async def handler(args: dict | None = None) -> str:
                 """Invoke the in-process router and return JSON text."""
                 return json.dumps(call(ctx, _name, args or {}))
+
             handler.__name__ = "tool_" + _name.replace(".", "_")
             return handler
 

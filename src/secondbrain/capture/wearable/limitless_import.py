@@ -3,6 +3,7 @@
 Limitless exports its lifelog as JSONL with `timestamp`, `text`, `speaker`.
 We map straight onto MemoryStream `transcript` records.
 """
+
 from __future__ import annotations
 
 import json

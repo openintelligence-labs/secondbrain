@@ -1,4 +1,5 @@
 """HTTP observability endpoints: deep /health and Prometheus /metrics."""
+
 from __future__ import annotations
 
 from pathlib import Path

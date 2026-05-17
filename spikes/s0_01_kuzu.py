@@ -5,6 +5,7 @@ Pass criteria:
 - Insert ~1000 nodes and edges
 - Run a Cypher 'as_of' temporal query under 10ms p50
 """
+
 from __future__ import annotations
 
 import shutil
@@ -12,13 +13,12 @@ import statistics
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _runner import record  # noqa: E402
-
 import kuzu  # noqa: E402
+from _runner import record  # noqa: E402
 
 
 def main() -> None:
@@ -28,9 +28,7 @@ def main() -> None:
         conn = kuzu.Connection(db)
 
         # Schema: Person, MemoryNode, MENTIONS edge with bi-temporal validity
-        conn.execute(
-            "CREATE NODE TABLE Person(id INT64 PRIMARY KEY, name STRING)"
-        )
+        conn.execute("CREATE NODE TABLE Person(id INT64 PRIMARY KEY, name STRING)")
         conn.execute(
             "CREATE NODE TABLE MemoryNode("
             "id INT64 PRIMARY KEY, "
@@ -47,7 +45,7 @@ def main() -> None:
         )
 
         N = 1000
-        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        base = datetime(2026, 1, 1, tzinfo=UTC)
 
         # Insert people
         for i in range(50):

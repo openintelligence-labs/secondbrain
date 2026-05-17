@@ -9,11 +9,12 @@ A `FrameSource` yields `Frame` objects asynchronously. Backends:
 Keeping the interface tiny means the cascade and persistence layers don't care
 where the frame came from.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 
 from PIL import Image
@@ -111,4 +112,4 @@ class LoopingSyntheticSource:
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

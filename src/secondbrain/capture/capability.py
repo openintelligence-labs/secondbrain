@@ -7,6 +7,7 @@ The cache lives in the encrypted SQLite DB. Schema is intentionally tiny: one
 row per (bundle_id, app_name) with success/total counters, last-seen timestamps,
 and a derived `usable` boolean cached via a hysteresis policy.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -82,9 +83,7 @@ class CapabilityCache:
             if success >= 3 and (success / total) >= 0.7:
                 usable = True
         else:
-            self._misses_since_last_hit[key] = (
-                self._misses_since_last_hit.get(key, 0) + 1
-            )
+            self._misses_since_last_hit[key] = self._misses_since_last_hit.get(key, 0) + 1
             # Flip OFF after 5 consecutive misses.
             if self._misses_since_last_hit[key] >= 5:
                 usable = False
@@ -124,8 +123,7 @@ class CapabilityCache:
     def is_usable(self, bundle_id: str, app_name: str) -> bool | None:
         """Return cached usability; None if we have never seen this app."""
         cur = self.conn.execute(
-            "SELECT usable FROM app_capability "
-            "WHERE bundle_id=? AND app_name=?",
+            "SELECT usable FROM app_capability WHERE bundle_id=? AND app_name=?",
             (bundle_id, app_name),
         ).fetchone()
         if cur is None:

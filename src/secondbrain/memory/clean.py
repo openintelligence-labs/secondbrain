@@ -14,6 +14,7 @@ Two passes:
 Both are conservative — bias toward keeping content. We'd rather a slightly
 noisy memory than a missing one.
 """
+
 from __future__ import annotations
 
 import re
@@ -22,10 +23,31 @@ import re
 # never carry useful information. Apple's menu bar layout: app name + File
 # Edit View … Help, plus a hidden Apple menu.
 _MENU_BAR_TOKENS = {
-    "File", "Edit", "View", "Window", "Help", "Format", "Bookmarks",
-    "History", "Profiles", "Tab", "Selection", "Find", "Go", "Develop",
-    "Debug", "Tools", "Insert", "Table", "Image", "Object", "Arrange",
-    "Modify", "Animation", "Recording", "Playback",
+    "File",
+    "Edit",
+    "View",
+    "Window",
+    "Help",
+    "Format",
+    "Bookmarks",
+    "History",
+    "Profiles",
+    "Tab",
+    "Selection",
+    "Find",
+    "Go",
+    "Develop",
+    "Debug",
+    "Tools",
+    "Insert",
+    "Table",
+    "Image",
+    "Object",
+    "Arrange",
+    "Modify",
+    "Animation",
+    "Recording",
+    "Playback",
 }
 
 # UI chrome strings the SecondBrain app itself shows — if the daemon
@@ -108,9 +130,7 @@ def looks_substantive(text: str, *, min_words: int = 4) -> bool:
     if len(words) < min_words:
         return False
     avg_word_len = sum(len(w) for w in words) / max(len(words), 1)
-    if avg_word_len < 2.5:
-        return False
-    return True
+    return not avg_word_len < 2.5
 
 
 def content_hash(text: str) -> str:
@@ -120,5 +140,6 @@ def content_hash(text: str) -> str:
     vs "File Edit") doesn't defeat the dedup check.
     """
     import hashlib
+
     normalized = " ".join(text.lower().split())
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()

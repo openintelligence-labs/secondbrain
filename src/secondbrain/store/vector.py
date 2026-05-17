@@ -9,6 +9,7 @@ Single `chunks` table:
     vector        : list[float32, 768]  # Nomic v2
     created_at    : float
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,7 +19,6 @@ from typing import Any
 import lancedb
 import numpy as np
 import pyarrow as pa
-
 
 VECTOR_DIM = 768
 
@@ -52,9 +52,7 @@ class VectorStore:
         names = getattr(listing, "tables", listing)
         existing = set(names)
         if self.table_name not in existing:
-            self._db.create_table(
-                self.table_name, schema=_schema(self.dim), mode="create"
-            )
+            self._db.create_table(self.table_name, schema=_schema(self.dim), mode="create")
         self._tbl = self._db.open_table(self.table_name)
         self._next_id = self._compute_next_id()
 
@@ -97,12 +95,7 @@ class VectorStore:
     ) -> list[dict[str, Any]]:
         """Cosine-similarity search. Returns rows with `_distance`."""
         q = np.asarray(query_vec, dtype=np.float32)
-        result = (
-            self._tbl.search(q)
-            .metric("cosine")
-            .limit(limit)
-            .to_arrow()
-        )
+        result = self._tbl.search(q).metric("cosine").limit(limit).to_arrow()
         out: list[dict[str, Any]] = []
         cols = {name: result.column(name).to_pylist() for name in result.column_names}
         n = result.num_rows

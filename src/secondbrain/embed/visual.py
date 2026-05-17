@@ -10,6 +10,7 @@ Public surface:
     qpatches = embedder.embed_queries(["the slide with the red Q3 chart"])
     scores = embedder.score_multi_vector(qpatches, patches)
 """
+
 from __future__ import annotations
 
 import threading
@@ -45,6 +46,7 @@ class VisualEmbedder:
             return self.cfg.device
         try:
             import torch
+
             if torch.backends.mps.is_available():
                 return "mps"
             if torch.cuda.is_available():
@@ -77,13 +79,15 @@ class VisualEmbedder:
         assert self._device is not None
         return self._device
 
-    def embed_images(self, images: list["Image.Image"]) -> Any:
+    def embed_images(self, images: list[Image.Image]) -> Any:
         """Returns a torch.Tensor of shape (B, P_b, dim)."""
         if not images:
             import torch
+
             return torch.empty(0)
         self._ensure_loaded()
         import torch
+
         with torch.no_grad():
             batch = self._processor.process_images(images).to(self._device)
             emb = self._model(**batch)
@@ -92,9 +96,11 @@ class VisualEmbedder:
     def embed_queries(self, queries: list[str]) -> Any:
         if not queries:
             import torch
+
             return torch.empty(0)
         self._ensure_loaded()
         import torch
+
         with torch.no_grad():
             batch = self._processor.process_queries(queries).to(self._device)
             emb = self._model(**batch)

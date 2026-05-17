@@ -10,12 +10,12 @@ Backend selection:
 
 Either way the on-disk header records the backend so files are self-describing.
 """
+
 from __future__ import annotations
 
 import os
 import shutil
 import struct
-import subprocess
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305

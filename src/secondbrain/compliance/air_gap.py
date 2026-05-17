@@ -8,6 +8,7 @@ Production hardening will additionally drop CAP_NET_RAW on Linux and use
 endpoint security on macOS. For now the Python-level guard is sufficient and
 testable in CI.
 """
+
 from __future__ import annotations
 
 import socket

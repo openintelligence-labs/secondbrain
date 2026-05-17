@@ -7,6 +7,7 @@ This module lands the dispatch surface; the heavy native impls
 hardware. The NotImplementedError messages tell users exactly which path
 needs to be exercised.
 """
+
 from __future__ import annotations
 
 import sys
@@ -42,9 +43,7 @@ def make_screen_source(
                 "Windows capture is stubbed. Build the windows-capture "
                 "Rust crate via PyO3; see capture/windows_wgc.py."
             ) from e
-        return WindowsScreenSource(
-            fps=fps, display_index=display_index, max_frames=max_frames
-        )
+        return WindowsScreenSource(fps=fps, display_index=display_index, max_frames=max_frames)
 
     if sys.platform.startswith("linux"):
         try:
@@ -55,8 +54,6 @@ def make_screen_source(
                 "ScreenCast with persistent RestoreToken; see "
                 "capture/linux_pw.py."
             ) from e
-        return LinuxScreenSource(
-            fps=fps, display_index=display_index, max_frames=max_frames
-        )
+        return LinuxScreenSource(fps=fps, display_index=display_index, max_frames=max_frames)
 
     raise RuntimeError(f"unsupported platform: {sys.platform}")

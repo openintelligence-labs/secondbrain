@@ -8,6 +8,7 @@ This module currently ships the *interface*; the PyO3 build pipeline lands
 later against a real Windows runner. Until then, importing this module on
 Windows raises `NotImplementedError` with a precise pointer.
 """
+
 from __future__ import annotations
 
 import sys
@@ -15,10 +16,7 @@ from collections.abc import AsyncIterator
 
 from secondbrain.capture.frame import Frame, FrameSource
 
-_NEEDS_PYO3 = (
-    "Windows capture requires the windows-capture Rust crate compiled with "
-    "PyO3 bindings."
-)
+_NEEDS_PYO3 = "Windows capture requires the windows-capture Rust crate compiled with PyO3 bindings."
 
 
 class WindowsScreenSource(FrameSource):

@@ -8,6 +8,7 @@ This module owns no I/O concerns: it consumes `Frame` objects, emits `Capture`
 rows, and delegates persistence + capability tracking to its collaborators.
 That makes it trivially unit-testable.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -18,12 +19,11 @@ from typing import Literal
 from uuid import uuid4
 
 from secondbrain.capture.capability import CapabilityCache
-from secondbrain.capture.dedup import DedupCascade, Decision
+from secondbrain.capture.dedup import Decision, DedupCascade
 from secondbrain.capture.deny_list import DenyList
 from secondbrain.capture.frame import Frame, FrameSource
 from secondbrain.models import Capture
 from secondbrain.store import captures as captures_repo
-
 
 GateName = Literal[
     "deny_list",
@@ -44,15 +44,13 @@ class CascadeMetrics:
     persisted: int = 0
     by_gate: dict[str, int] = field(default_factory=dict)
     ax_text_present: int = 0  # for AX-vs-OCR ratio
-    paused: bool = False       # set via /daemon control endpoint
+    paused: bool = False  # set via /daemon control endpoint
 
     def hit(self, gate: GateName) -> None:
         self.by_gate[gate] = self.by_gate.get(gate, 0) + 1
 
     def as_dict(self) -> dict:
-        ax_ratio = (
-            self.ax_text_present / self.persisted if self.persisted else 0.0
-        )
+        ax_ratio = self.ax_text_present / self.persisted if self.persisted else 0.0
         return {
             "seen": self.seen,
             "persisted": self.persisted,
@@ -94,7 +92,9 @@ class CapturePipeline:
 
         # Gate 1 — window-title deny-list (0 ms)
         denied, _reason = self.deny.decide(
-            frame.app_name, frame.window_title, frame.app_bundle_id,
+            frame.app_name,
+            frame.window_title,
+            frame.app_bundle_id,
         )
         if denied:
             self.metrics.hit("deny_list")
@@ -156,7 +156,7 @@ class CapturePipeline:
 
 # Tiny sidecar map — capture_id → PIL.Image for the visual-embed path.
 # Daemon pops entries after encoding; entries here are never persisted.
-_IMAGE_FOR_VISUAL: dict[str, "object"] = {}
+_IMAGE_FOR_VISUAL: dict[str, object] = {}
 
 
 def take_image_for_visual(capture_id: str):
@@ -166,4 +166,5 @@ def take_image_for_visual(capture_id: str):
 def started_at(_frame: Frame | None = None) -> datetime:
     """Tiny indirection so tests can monkey-patch time if they need to."""
     from secondbrain.capture.frame import now
+
     return now()

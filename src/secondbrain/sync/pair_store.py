@@ -7,8 +7,10 @@ Layout:
   ~/.secondbrain/identity.key       — raw 32-byte X25519 private key (mode 0600)
   Keychain service "secondbrain.sync.psk", account "default" — 32-byte PSK hex
 """
+
 from __future__ import annotations
 
+import contextlib
 import os
 import stat
 from pathlib import Path
@@ -35,9 +37,7 @@ def load_or_create_identity(path: Path | None = None) -> DeviceIdentity:
     if path.exists():
         raw = path.read_bytes()
         if len(raw) != 32:
-            raise ValueError(
-                f"{path} is {len(raw)} bytes; expected 32. Delete it and re-pair."
-            )
+            raise ValueError(f"{path} is {len(raw)} bytes; expected 32. Delete it and re-pair.")
         sk = X25519PrivateKey.from_private_bytes(raw)
         return DeviceIdentity(
             private_key=sk,
@@ -84,10 +84,8 @@ def load_psk() -> bytes | None:
 
 
 def clear_psk() -> None:
-    try:
+    with contextlib.suppress(keyring.errors.PasswordDeleteError):
         keyring.delete_password(PSK_KEYRING_SERVICE, PSK_KEYRING_ACCOUNT)
-    except keyring.errors.PasswordDeleteError:
-        pass
 
 
 def complete_pairing(peer_pubkey_hex: str) -> bytes:

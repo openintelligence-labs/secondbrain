@@ -13,10 +13,11 @@ Three scenarios:
   3. Daemon's pipeline writes → forget → daemon's pipeline reads back →
      does it see the deletion?
 """
+
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -24,16 +25,8 @@ import pytest
 from secondbrain.api.mcp_server import MCPContext, call
 from secondbrain.capture.frame import Frame, SyntheticFrameSource
 from secondbrain.daemon import Daemon, DaemonConfig
-from secondbrain.embed.stub import StubEmbedder
-from secondbrain.memory.amem import AMemLinker
-from secondbrain.memory.entities import EntityResolver
-from secondbrain.memory.pipeline import MemoryPipeline
-from secondbrain.models import Capture
-from secondbrain.store.captures import insert as insert_capture
 from secondbrain.store.kg import KnowledgeGraph
 from secondbrain.store.oltp import open_unencrypted
-from secondbrain.store.text_index import TextIndex
-from secondbrain.store.vector import VectorStore
 
 
 def _seed_via_daemon(tmp_path: Path) -> Daemon:
@@ -48,7 +41,7 @@ def _seed_via_daemon(tmp_path: Path) -> Daemon:
     rng = np.random.default_rng(0)
     frames = [
         Frame(
-            captured_at=datetime(2026, 5, 6, 12, i, tzinfo=timezone.utc),
+            captured_at=datetime(2026, 5, 6, 12, i, tzinfo=UTC),
             image=Image.fromarray(rng.integers(0, 255, (120, 160, 3), dtype=np.uint8)),
             app_name="Slack",
             app_bundle_id="com.slack",
@@ -56,11 +49,13 @@ def _seed_via_daemon(tmp_path: Path) -> Daemon:
             ax_text=text,
             dirty_rect_fraction=0.5,
         )
-        for i, text in enumerate([
-            "Sam Reed will ship the Snowflake migration by Friday.",
-            "Pat Lane wrote the rollback plan.",
-            "Stripe billing token expiry hotfix Wednesday.",
-        ])
+        for i, text in enumerate(
+            [
+                "Sam Reed will ship the Snowflake migration by Friday.",
+                "Pat Lane wrote the rollback plan.",
+                "Stripe billing token expiry hotfix Wednesday.",
+            ]
+        )
     ]
     asyncio.run(daemon.run(SyntheticFrameSource(frames)))
     return daemon
@@ -77,9 +72,7 @@ def test_mcp_forget_works_after_daemon_finishes(tmp_path: Path):
     conn = open_unencrypted(db)
 
     # Find a real capture id to forget.
-    cap_id = next(iter(
-        r[0] for r in conn.execute("SELECT id FROM captures LIMIT 1")
-    ))
+    cap_id = next(iter(r[0] for r in conn.execute("SELECT id FROM captures LIMIT 1")))
 
     ctx = MCPContext(
         kg=daemon._memory.kg,
@@ -103,7 +96,7 @@ def test_separate_kuzu_handle_collides_with_daemon(tmp_path: Path):
     daemon's first handle is still alive. This is what would happen if a
     `secondbrain mcp` server spun up while `secondbrain run` was still
     capturing — a likely user setup."""
-    daemon = _seed_via_daemon(tmp_path)
+    _seed_via_daemon(tmp_path)
 
     # Daemon's KG is still alive; trying to open another connection on the
     # same Kùzu DB from this same process should either share or collide.
@@ -122,13 +115,14 @@ def test_separate_kuzu_handle_collides_with_daemon(tmp_path: Path):
         print(f"second-handle-raised {type(e).__name__}: {e}")
 
     # Document the answer either way; fail only on a totally mysterious error.
-    if raised is not None and "lock" not in repr(raised).lower() and \
-       "unique" not in repr(raised).lower() and \
-       "concurrent" not in repr(raised).lower() and \
-       "open" not in repr(raised).lower():
-        pytest.fail(
-            f"Second handle raised an unexpected exception: {raised!r}"
-        )
+    if (
+        raised is not None
+        and "lock" not in repr(raised).lower()
+        and "unique" not in repr(raised).lower()
+        and "concurrent" not in repr(raised).lower()
+        and "open" not in repr(raised).lower()
+    ):
+        pytest.fail(f"Second handle raised an unexpected exception: {raised!r}")
 
 
 def test_kuzu_two_process_collision(tmp_path: Path):
@@ -144,13 +138,13 @@ def test_kuzu_two_process_collision(tmp_path: Path):
     db_root = tmp_path / "kg"
     holder_script = (
         "import time, sys; "
-        "sys.path.insert(0, %r); "
+        "sys.path.insert(0, {!r}); "
         "from secondbrain.store.kg import KnowledgeGraph; "
-        "kg = KnowledgeGraph(db_path=%r); "
+        "kg = KnowledgeGraph(db_path={!r}); "
         "kg._conn.execute('MATCH (n) RETURN count(n)').get_next(); "
         "print('A_OPEN', flush=True); "
         "time.sleep(3)"
-    ) % (
+    ).format(
         str(Path(__file__).resolve().parents[1] / "src"),
         str(db_root),
     )
@@ -209,9 +203,7 @@ def test_forget_visible_to_daemon_pipeline(tmp_path: Path):
     assert n_deleted >= 0
 
     # Re-query through the same handle.
-    cap_ids_after = [
-        r[0] for r in daemon._memory.kg._conn.execute("MATCH (c:Capture) RETURN c.id")
-    ]
+    cap_ids_after = [r[0] for r in daemon._memory.kg._conn.execute("MATCH (c:Capture) RETURN c.id")]
     assert target not in cap_ids_after, (
         "forget_capture did not remove the Capture node visible to the same handle"
     )

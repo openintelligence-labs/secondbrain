@@ -10,6 +10,7 @@ Logs land in ~/.secondbrain/logs/.
 
 `uninstall-agent` does the reverse: bootout + plist removal.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,12 +38,9 @@ class AgentSpec:
 
 def render_plist(spec: AgentSpec) -> str:
     """Render the launchd plist as XML text. Used directly by tests."""
-    extra_args_xml = "".join(
-        f"        <string>{a}</string>\n" for a in spec.extra_args
-    )
+    extra_args_xml = "".join(f"        <string>{a}</string>\n" for a in spec.extra_args)
     env_xml = "".join(
-        f"        <key>{k}</key>\n        <string>{v}</string>\n"
-        for k, v in spec.env_vars
+        f"        <key>{k}</key>\n        <string>{v}</string>\n" for k, v in spec.env_vars
     )
 
     template_path = Path(__file__).parent / "templates" / "launchd.plist.tmpl"

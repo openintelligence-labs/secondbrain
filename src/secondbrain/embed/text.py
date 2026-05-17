@@ -23,6 +23,7 @@ Public surface:
     vecs = embedder.embed_passages(["..."])
     qvec = embedder.embed_query("...")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -76,7 +77,7 @@ class TextEmbedder:
         *,
         model: str = ACTANTS_DEFAULT_MODEL,
         normalize: bool = True,
-    ) -> "TextEmbedder":
+    ) -> TextEmbedder:
         """Build an embedder that routes through actants (default Ollama)."""
         return cls(
             TextEmbedderConfig(
@@ -87,7 +88,7 @@ class TextEmbedder:
         )
 
     # ------- backend: local sentence-transformers -------
-    def _ensure_local(self) -> "SentenceTransformer":
+    def _ensure_local(self) -> SentenceTransformer:
         if self._model is not None:
             return self._model
         with self._load_lock:
@@ -108,6 +109,7 @@ class TextEmbedder:
         with self._load_lock:
             if self._actants is None:
                 from actants import Embeddings
+
                 self._actants = Embeddings(model=self.cfg.actants_model)
         return self._actants
 

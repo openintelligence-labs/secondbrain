@@ -9,6 +9,7 @@ to Jina-v3-style late chunking once long browser snapshots flow in. For now
 the pipeline simply records `late_chunked: false` so we can swap behind the
 same surface later without touching call sites.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

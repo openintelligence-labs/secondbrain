@@ -8,6 +8,7 @@ This module currently ships the interface; the actual model loader lands
 later because the VL model is ~3GB and we don't want to make every install
 pull it.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

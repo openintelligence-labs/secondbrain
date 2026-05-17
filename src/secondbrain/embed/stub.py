@@ -3,6 +3,7 @@
 Embeds via SHA-256 of token vocabulary → cheap, ordered, identical inputs
 yield identical vectors. Same dim as Nomic v2 (768) so storage paths match.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,9 +22,7 @@ def _vec(text: str, dim: int = EMBEDDING_DIM) -> np.ndarray:
     out /= max(np.linalg.norm(out), 1e-9)
     # Add a token-presence signal so semantically similar strings cluster.
     for tok in set(text.lower().split()):
-        idx = int.from_bytes(
-            hashlib.sha256(tok.encode()).digest()[:4], "big"
-        ) % dim
+        idx = int.from_bytes(hashlib.sha256(tok.encode()).digest()[:4], "big") % dim
         out[idx] += 1.0
     out /= max(np.linalg.norm(out), 1e-9)
     return out

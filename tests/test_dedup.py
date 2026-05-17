@@ -96,9 +96,9 @@ def test_cascade_dirty_rect_gate_short_circuits():
 def test_cascade_borderline_escalates_to_phash_then_ssim():
     """Tighten thresholds so the same-frame case forces escalation paths."""
     t = CascadeThresholds(
-        dhash_skip_max=0,        # only exact matches skip on dHash
-        dhash_borderline_max=64, # always escalate to pHash
-        phash_skip_max=0,        # only exact pHash matches skip on pHash
+        dhash_skip_max=0,  # only exact matches skip on dHash
+        dhash_borderline_max=64,  # always escalate to pHash
+        phash_skip_max=0,  # only exact pHash matches skip on pHash
         ssim_skip_min=0.99,
     )
     cascade = DedupCascade(t)

@@ -11,6 +11,7 @@ Order (cheapest gate first; each gate has authority to skip the frame):
 
 Public surface: `DedupCascade.evaluate(frame) -> Decision`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,9 +52,7 @@ def dhash(image: Image.Image | np.ndarray, hash_size: int = 8) -> int:
     """
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
-    img = image.convert("L").resize(
-        (hash_size + 1, hash_size), Image.Resampling.LANCZOS
-    )
+    img = image.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
     arr = np.asarray(img, dtype=np.int16)
     diff = arr[:, 1:] > arr[:, :-1]
     bits = 0
@@ -76,9 +75,7 @@ def phash(image: Image.Image | np.ndarray, hash_size: int = 8) -> int:
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     img_size = hash_size * 4
-    img = image.convert("L").resize(
-        (img_size, img_size), Image.Resampling.LANCZOS
-    )
+    img = image.convert("L").resize((img_size, img_size), Image.Resampling.LANCZOS)
     arr = np.asarray(img, dtype=np.float32)
     dct_full = _dct2(arr)
     low = dct_full[:hash_size, :hash_size]
@@ -121,9 +118,9 @@ class CascadeThresholds:
     expect to revisit once real workload measurements are in.
     """
 
-    dirty_rect_min_fraction: float = 0.005      # 0.5% of display area
-    dhash_skip_max: int = 4                      # Hamming <=4 = duplicate
-    dhash_borderline_max: int = 10               # 5..10 → escalate to pHash
+    dirty_rect_min_fraction: float = 0.005  # 0.5% of display area
+    dhash_skip_max: int = 4  # Hamming <=4 = duplicate
+    dhash_borderline_max: int = 10  # 5..10 → escalate to pHash
     phash_skip_max: int = 6
     ssim_skip_min: float = 0.96
 
@@ -145,10 +142,7 @@ class DedupCascade:
     ) -> Decision:
         """Run a candidate frame through every gate. Updates state on persist."""
         # Gate 3 — dirty-rect area
-        if (
-            dirty_rect_fraction is not None
-            and dirty_rect_fraction < self.t.dirty_rect_min_fraction
-        ):
+        if dirty_rect_fraction is not None and dirty_rect_fraction < self.t.dirty_rect_min_fraction:
             return Decision(
                 persist=False,
                 gate="dirty_rect",
