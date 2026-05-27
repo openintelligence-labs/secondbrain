@@ -70,6 +70,12 @@ class DaemonConfig:
     # via Ollama). False keeps the local sentence-transformers Nomic v2 path.
     llm_embeddings: bool = False
     llm_embedding_model: str | None = None
+    # Sensitive-content redaction gate. False keeps the daemon's existing
+    # behavior (no classifier wired). True attaches a classifier — today the
+    # heuristic baseline; the Florence-backed implementation lands behind the
+    # [redact] extra in a follow-up PR.
+    enable_redact: bool = False
+    redact_threshold: float = 0.6
 
 
 class Daemon:
@@ -165,7 +171,15 @@ class Daemon:
             if self.cfg.deny_list_yaml
             else DenyList.from_defaults()
         )
-        cascade = DedupCascade()
+        classifier = None
+        if self.cfg.enable_redact:
+            from secondbrain.compliance.sensitive import get_classifier
+
+            classifier = get_classifier()
+        cascade = DedupCascade(
+            classifier=classifier,
+            redact_threshold=self.cfg.redact_threshold,
+        )
         capability = CapabilityCache(conn)
         pipeline = CapturePipeline(
             deny=deny,

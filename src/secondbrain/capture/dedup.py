@@ -8,6 +8,7 @@ Order (cheapest gate first; each gate has authority to skip the frame):
     4. dHash Hamming distance below threshold  → skip (~0.3 ms)
     5. pHash verify on borderline (5..10)      → skip
     6. SSIM on dirty thumbnail above threshold → skip (~5 ms)
+    7. Sensitive-content classifier (opt-in)   → redact (~150 ms p95)
 
 Public surface: `DedupCascade.evaluate(frame) -> Decision`.
 """
@@ -15,10 +16,13 @@ Public surface: `DedupCascade.evaluate(frame) -> Decision`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from PIL import Image
+
+if TYPE_CHECKING:
+    from secondbrain.compliance.sensitive import SensitiveClassifier, SensitiveDecision
 
 GateName = Literal[
     "deny_list",
@@ -27,6 +31,7 @@ GateName = Literal[
     "dhash",
     "phash",
     "ssim",
+    "redacted",
     "persist",
 ]
 
@@ -36,12 +41,14 @@ class Decision:
     """Outcome of running a frame through the cascade.
 
     `gate` names which gate decided the frame's fate; `persist=True` means it
-    survived all gates and should be written to disk.
+    survived all gates and should be written to disk. `redaction` is non-None
+    only when `gate == "redacted"`.
     """
 
     persist: bool
     gate: GateName
     detail: str = ""
+    redaction: SensitiveDecision | None = None
 
 
 def dhash(image: Image.Image | np.ndarray, hash_size: int = 8) -> int:
@@ -128,17 +135,28 @@ class CascadeThresholds:
 class DedupCascade:
     """Stateful evaluator. Holds the previous-frame hashes for comparison."""
 
-    def __init__(self, thresholds: CascadeThresholds | None = None) -> None:
+    def __init__(
+        self,
+        thresholds: CascadeThresholds | None = None,
+        *,
+        classifier: SensitiveClassifier | None = None,
+        redact_threshold: float = 0.6,
+    ) -> None:
         self.t = thresholds or CascadeThresholds()
         self._prev_dhash: int | None = None
         self._prev_phash: int | None = None
         self._prev_thumb: Image.Image | None = None
+        # When set, the classifier is invoked after SSIM and can downgrade
+        # a would-be-persist Decision to gate="redacted".
+        self._classifier = classifier
+        self._redact_threshold = redact_threshold
 
     def evaluate(
         self,
         image: Image.Image,
         *,
         dirty_rect_fraction: float | None = None,
+        hint: str = "",
     ) -> Decision:
         """Run a candidate frame through every gate. Updates state on persist."""
         # Gate 3 — dirty-rect area
@@ -181,6 +199,25 @@ class DedupCascade:
                             gate="ssim",
                             detail=f"ssim={s:.4f}",
                         )
+
+        # Gate 7 — sensitive-content classifier (opt-in; only the most
+        # expensive frames get here). Position-after-SSIM is deliberate: we
+        # never want to pay ~150ms on frames the cheap gates would drop, and
+        # we never want to *persist* sensitive content even briefly.
+        if self._classifier is not None:
+            decision = self._classifier.classify(image, hint=hint)
+            if decision.is_sensitive and decision.confidence >= self._redact_threshold:
+                # Still advance state so the *next* identical frame is caught
+                # by dHash/SSIM and we don't re-run the classifier on it.
+                self._prev_dhash = cur_dhash
+                self._prev_phash = phash(image)
+                self._prev_thumb = image
+                return Decision(
+                    persist=False,
+                    gate="redacted",
+                    detail=decision.reason,
+                    redaction=decision,
+                )
 
         # Survived all gates → persist; update state.
         self._prev_dhash = cur_dhash
