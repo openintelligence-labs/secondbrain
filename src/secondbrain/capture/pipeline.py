@@ -22,6 +22,7 @@ from secondbrain.capture.capability import CapabilityCache
 from secondbrain.capture.dedup import Decision, DedupCascade
 from secondbrain.capture.deny_list import DenyList
 from secondbrain.capture.frame import Frame, FrameSource
+from secondbrain.compliance.audit import AuditLog
 from secondbrain.models import Capture
 from secondbrain.store import captures as captures_repo
 
@@ -69,6 +70,10 @@ class CapturePipeline:
     capability: CapabilityCache
     conn: sqlite3.Connection
     metrics: CascadeMetrics = field(default_factory=CascadeMetrics)
+    # Optional audit log. When present, redaction events are recorded with
+    # category + confidence + model metadata — no image bytes or original
+    # window title. The user can later prove "N frames were refused at T".
+    audit: AuditLog | None = None
     # Track previous AX digest per (bundle_id, app_name) to skip unchanged.
     _prev_ax_digest: dict[tuple[str, str], bytes] = field(default_factory=dict)
 
@@ -109,13 +114,22 @@ class CapturePipeline:
                 return None
             self._prev_ax_digest[ax_key] = frame.ax_text_digest
 
-        # Gates 3-6 — dirty-rect / dHash / pHash / SSIM
+        # Gates 3-7 — dirty-rect / dHash / pHash / SSIM / redact
+        # The hint passes window-title + app-name context to the optional
+        # sensitive-content classifier so it can use it as a prompt prior.
+        # No PII leaks: the hint never enters the persisted store or the
+        # audit log unless the user explicitly opted in to that behavior
+        # (and today no path does).
+        hint_parts = [p for p in (frame.app_name, frame.window_title) if p]
         decision: Decision = self.cascade.evaluate(
             frame.image,
             dirty_rect_fraction=frame.dirty_rect_fraction,
+            hint=" — ".join(hint_parts),
         )
         if not decision.persist:
             self.metrics.hit(decision.gate)
+            if decision.gate == "redacted" and self.audit is not None:
+                self._record_redaction(frame, decision)
             return None
 
         # Track per-app AX capability based on whether the source produced
@@ -152,6 +166,31 @@ class CapturePipeline:
         # mutating the Pydantic model. Cleared by the consumer after use.
         _IMAGE_FOR_VISUAL[capture.id] = frame.image
         return capture
+
+    def _record_redaction(self, frame: Frame, decision: Decision) -> None:
+        """Persist a redaction event to the audit log.
+
+        Payload is intentionally minimal: app + bundle + classifier metadata
+        and the timestamp. No image bytes, no original window title, no AX
+        text. The user can later prove "between T1 and T2 we refused N
+        frames with category X" without anything sensitive leaving the
+        classifier's process.
+        """
+        redaction = decision.redaction
+        assert redaction is not None  # mypy belt-and-braces; the gate guarantees this
+        self.audit.record(  # type: ignore[union-attr]
+            action="capture.redacted",
+            actor="daemon",
+            detail={
+                "captured_at": frame.captured_at.isoformat(),
+                "app_name": frame.app_name,
+                "app_bundle_id": frame.app_bundle_id,
+                "categories": list(redaction.categories),
+                "confidence": redaction.confidence,
+                "model": redaction.model,
+                "latency_ms": redaction.latency_ms,
+            },
+        )
 
 
 # Tiny sidecar map — capture_id → PIL.Image for the visual-embed path.

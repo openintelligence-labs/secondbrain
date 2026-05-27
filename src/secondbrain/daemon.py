@@ -181,12 +181,18 @@ class Daemon:
             redact_threshold=self.cfg.redact_threshold,
         )
         capability = CapabilityCache(conn)
+        # Wire the audit log so the pipeline can record redaction events.
+        # Same connection as the rest of the OLTP store; same encryption.
+        from secondbrain.compliance.audit import AuditLog
+
+        audit = AuditLog(conn)
         pipeline = CapturePipeline(
             deny=deny,
             cascade=cascade,
             capability=capability,
             conn=conn,
             metrics=self.cfg.metrics,
+            audit=audit,
         )
         self._pipeline = pipeline
         if self.cfg.enable_memory:
