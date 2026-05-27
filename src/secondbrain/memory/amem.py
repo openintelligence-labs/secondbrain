@@ -4,10 +4,11 @@ Implements the "find top-K similar prior memories, write bidirectional KG
 links" half of A-MEM (NeurIPS 2025). The retroactive note-rewrite half is
 deferred until the Qwen3-8B synthesizer is wired.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 
 import numpy as np
@@ -43,11 +44,9 @@ class AMemLinker:
         sims = cands @ q
         ranked = sorted(zip(ids, sims, strict=True), key=lambda x: float(x[1]), reverse=True)
         return [
-            (mid, float(s))
-            for mid, s in ranked[: self.top_k]
-            if float(s) >= self.min_similarity
+            (mid, float(s)) for mid, s in ranked[: self.top_k] if float(s) >= self.min_similarity
         ]
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

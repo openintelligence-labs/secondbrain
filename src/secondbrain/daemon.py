@@ -11,6 +11,7 @@ A long-running asyncio process that:
 The daemon does not own a frame source itself — callers (CLI / tests) inject
 one. That keeps the daemon trivially testable end-to-end without a display.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -104,6 +105,7 @@ class Daemon:
         base = self.cfg.db_path.parent
         if self.cfg.use_stub_embedder:
             from secondbrain.embed.stub import StubEmbedder
+
             embedder = StubEmbedder()
         elif self.cfg.llm_embeddings:
             embedder = TextEmbedder.via_actants(
@@ -224,6 +226,7 @@ class Daemon:
         # thread, where this would raise ValueError — swallow it; the UI
         # uses daemon.stop() explicitly on quit.
         import threading
+
         if threading.current_thread() is threading.main_thread():
             loop = asyncio.get_running_loop()
             for sig in (signal.SIGINT, signal.SIGTERM):
@@ -247,8 +250,8 @@ class Daemon:
                 # Electron captures would never get text.
                 if self.cfg.enable_ocr_fallback and not capture.ax_text:
                     try:
-                        from secondbrain.ocr.selector import aselect_text
                         from secondbrain.capture.pipeline import _IMAGE_FOR_VISUAL
+                        from secondbrain.ocr.selector import aselect_text
 
                         ocr_path = capture.pixel_path
                         tmp_path = None
@@ -256,7 +259,10 @@ class Daemon:
                             img = _IMAGE_FOR_VISUAL.get(capture.id)
                             if img is not None:
                                 import tempfile
-                                tmp = tempfile.NamedTemporaryFile(
+
+                                # delete=False: the path outlives this block and
+                                # is cleaned up downstream via tmp_path.
+                                tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
                                     suffix=".png", delete=False
                                 )
                                 img.save(tmp.name, format="PNG")
@@ -264,9 +270,7 @@ class Daemon:
                                 ocr_path = Path(tmp.name)
                                 tmp_path = ocr_path
                         if ocr_path is not None:
-                            outcome = await aselect_text(
-                                ax_text=None, image_path=ocr_path
-                            )
+                            outcome = await aselect_text(ax_text=None, image_path=ocr_path)
                             if outcome.text and outcome.provider != "none":
                                 capture.ocr_text = outcome.text
                                 log.debug(
@@ -287,24 +291,22 @@ class Daemon:
                         if n > 0 and self._memory is not None:
                             self._memory.ingest(capture)
                     except Exception as e:
-                        log.warning(
-                            "memory.ingest_failed", capture_id=capture.id, err=repr(e)
-                        )
+                        log.warning("memory.ingest_failed", capture_id=capture.id, err=repr(e))
                 if (
                     self._visual is not None
                     and self._visual_store is not None
                     and capture.gate == "persist"
                 ):
                     from secondbrain.capture.pipeline import take_image_for_visual
+
                     img = take_image_for_visual(capture.id)
                     if img is not None:
                         try:
-                            patches = await asyncio.to_thread(
-                                self._encode_visual, img
-                            )
+                            patches = await asyncio.to_thread(self._encode_visual, img)
                             if patches is not None:
                                 self._visual_store.add(
-                                    capture.id, patches,
+                                    capture.id,
+                                    patches,
                                     created_at=capture.captured_at.timestamp(),
                                 )
                         except Exception as e:
@@ -316,6 +318,7 @@ class Daemon:
                 else:
                     # Drain the sidecar to avoid leaking PIL images when visual is off.
                     from secondbrain.capture.pipeline import take_image_for_visual
+
                     take_image_for_visual(capture.id)
 
         consumer = asyncio.create_task(consume())

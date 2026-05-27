@@ -14,17 +14,19 @@ Security:
 This is intentionally tiny — every endpoint maps directly to an existing
 in-process function. No new business logic.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import web
 
-from secondbrain.api.mcp_server import MCPContext, call as mcp_call
+from secondbrain.api.mcp_server import MCPContext
+from secondbrain.api.mcp_server import call as mcp_call
 
 
 def _json_default(o):
@@ -35,8 +37,10 @@ def _json_default(o):
     raise TypeError(f"not JSON-serializable: {type(o).__name__}")
 
 
-def _json(payload, status: int = 200) -> "web.Response":
-    return web.json_response(payload, status=status, dumps=lambda v: json.dumps(v, default=_json_default))
+def _json(payload, status: int = 200) -> web.Response:
+    return web.json_response(
+        payload, status=status, dumps=lambda v: json.dumps(v, default=_json_default)
+    )
 
 
 _ALLOWED_ORIGINS = {
@@ -101,6 +105,7 @@ def _cors(response: web.StreamResponse, request: web.Request) -> web.StreamRespo
 
 # ---- Route handlers --------------------------------------------------------
 
+
 def _disk_free_gib(path) -> float | None:
     try:
         import shutil
@@ -148,7 +153,7 @@ async def health(request: web.Request) -> web.Response:
     return _json(
         {
             "ok": ok,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "checks": checks,
         },
         status=200 if ok else 503,
@@ -158,10 +163,14 @@ async def health(request: web.Request) -> web.Response:
 async def search(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.search", {
-        "query": body.get("query", ""),
-        "limit": int(body.get("limit", 10)),
-    })
+    out = mcp_call(
+        ctx,
+        "memory.search",
+        {
+            "query": body.get("query", ""),
+            "limit": int(body.get("limit", 10)),
+        },
+    )
     return _json(out)
 
 
@@ -175,30 +184,42 @@ async def who(request: web.Request) -> web.Response:
 async def timeline(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.recall_timeline", {
-        "start": body["start"],
-        "end": body["end"],
-    })
+    out = mcp_call(
+        ctx,
+        "memory.recall_timeline",
+        {
+            "start": body["start"],
+            "end": body["end"],
+        },
+    )
     return _json(out)
 
 
 async def digest(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.daily_digest", {
-        "date": body.get("date"),
-        "period": body.get("period", "day"),
-    })
+    out = mcp_call(
+        ctx,
+        "memory.daily_digest",
+        {
+            "date": body.get("date"),
+            "period": body.get("period", "day"),
+        },
+    )
     return _json(out)
 
 
 async def commitments(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.commitments", {
-        "status": body.get("status", "open"),
-        "due_before": body.get("due_before"),
-    })
+    out = mcp_call(
+        ctx,
+        "memory.commitments",
+        {
+            "status": body.get("status", "open"),
+            "due_before": body.get("due_before"),
+        },
+    )
     return _json(out)
 
 
@@ -207,31 +228,41 @@ async def status_endpoint(request: web.Request) -> web.Response:
     daemon = request.app.get("daemon")
     if daemon is None:
         return _json({"running": False})
-    return _json({
-        "running": True,
-        "metrics": daemon.metrics.as_dict(),
-        "ts": datetime.now(timezone.utc).isoformat(),
-    })
+    return _json(
+        {
+            "running": True,
+            "metrics": daemon.metrics.as_dict(),
+            "ts": datetime.now(UTC).isoformat(),
+        }
+    )
 
 
 async def forget(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.forget", {
-        "capture_id": body.get("capture_id"),
-        "entity_id": body.get("entity_id"),
-        "reason": body.get("reason", "ui-triggered"),
-    })
+    out = mcp_call(
+        ctx,
+        "memory.forget",
+        {
+            "capture_id": body.get("capture_id"),
+            "entity_id": body.get("entity_id"),
+            "reason": body.get("reason", "ui-triggered"),
+        },
+    )
     return _json(out)
 
 
 async def add_note(request: web.Request) -> web.Response:
     body = await request.json()
     ctx: MCPContext = request.app["ctx"]
-    out = mcp_call(ctx, "memory.add_note", {
-        "text": body["text"],
-        "tags": body.get("tags", []),
-    })
+    out = mcp_call(
+        ctx,
+        "memory.add_note",
+        {
+            "text": body["text"],
+            "tags": body.get("tags", []),
+        },
+    )
     return _json(out)
 
 
@@ -245,6 +276,7 @@ async def audit_log(request: web.Request) -> web.Response:
         (limit,),
     ).fetchall()
     import json as _j
+
     entries = [
         {
             "id": r[0],
@@ -263,27 +295,35 @@ async def audit_log(request: web.Request) -> web.Response:
 async def llm_config(request: web.Request) -> web.Response:
     """Surface the BYO-LLM env config so the Settings UI shows what's live."""
     from secondbrain.llm_config import from_env
+
     cfg = from_env()
     import importlib.util as _ilu
+
     sdk_for = {
-        "ollama": None, "openai": "openai", "anthropic": "anthropic",
-        "gemini": None, "groq": "openai", "mistral": "openai",
+        "ollama": None,
+        "openai": "openai",
+        "anthropic": "anthropic",
+        "gemini": None,
+        "groq": "openai",
+        "mistral": "openai",
     }
     prov = (cfg.provider or "ollama").lower()
     required = sdk_for.get(prov)
     sdk_state = (
-        "ok-no-sdk-needed" if required is None
-        else ("ok-importable" if _ilu.find_spec(required) is not None
-              else f"missing:{required}")
+        "ok-no-sdk-needed"
+        if required is None
+        else ("ok-importable" if _ilu.find_spec(required) is not None else f"missing:{required}")
     )
-    return _json({
-        "provider": cfg.provider,
-        "model": cfg.model,
-        "base_url": cfg.base_url,
-        "api_key_set": bool(cfg.api_key),
-        "sdk_state": sdk_state,
-        "description": cfg.describe(),
-    })
+    return _json(
+        {
+            "provider": cfg.provider,
+            "model": cfg.model,
+            "base_url": cfg.base_url,
+            "api_key_set": bool(cfg.api_key),
+            "sdk_state": sdk_state,
+            "description": cfg.describe(),
+        }
+    )
 
 
 def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
@@ -316,34 +356,55 @@ def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
 
     if daemon is not None:
         m = daemon.metrics.as_dict()
-        counter("secondbrain_frames_seen_total", m.get("seen", 0),
-                "Frames the cascade has examined.")
-        counter("secondbrain_captures_persisted_total", m.get("persisted", 0),
-                "Frames that survived the cascade and got persisted.")
+        counter(
+            "secondbrain_frames_seen_total", m.get("seen", 0), "Frames the cascade has examined."
+        )
+        counter(
+            "secondbrain_captures_persisted_total",
+            m.get("persisted", 0),
+            "Frames that survived the cascade and got persisted.",
+        )
         for gate, n in (m.get("by_gate") or {}).items():
-            counter(f"secondbrain_captures_by_gate_total", n,
-                    "Per-cascade-gate decision counts.", gate=gate)
-        gauge("secondbrain_ax_text_ratio", m.get("ax_text_ratio", 0.0),
-              "Fraction of persisted captures that had AX text.")
-        gauge("secondbrain_daemon_paused", 1 if m.get("paused") else 0,
-              "1 when capture is paused via /daemon.")
+            counter(
+                "secondbrain_captures_by_gate_total",
+                n,
+                "Per-cascade-gate decision counts.",
+                gate=gate,
+            )
+        gauge(
+            "secondbrain_ax_text_ratio",
+            m.get("ax_text_ratio", 0.0),
+            "Fraction of persisted captures that had AX text.",
+        )
+        gauge(
+            "secondbrain_daemon_paused",
+            1 if m.get("paused") else 0,
+            "1 when capture is paused via /daemon.",
+        )
 
         # Memory pipeline degradation counters, if the daemon attached one.
         mem = getattr(daemon, "_memory", None)
         if mem is not None:
             pm = mem.metrics.as_dict()
-            counter("secondbrain_memory_linker_failures_total",
-                    pm.get("linker_failures", 0),
-                    "A-MEM linker failures that fell back to no neighbors.")
-            counter("secondbrain_memory_commitment_failures_total",
-                    pm.get("commitment_failures", 0),
-                    "Commitment extractor failures that fell back to none.")
+            counter(
+                "secondbrain_memory_linker_failures_total",
+                pm.get("linker_failures", 0),
+                "A-MEM linker failures that fell back to no neighbors.",
+            )
+            counter(
+                "secondbrain_memory_commitment_failures_total",
+                pm.get("commitment_failures", 0),
+                "Commitment extractor failures that fell back to none.",
+            )
 
     # Audit log size — useful sanity gauge.
     try:
         n_audit = ctx.oltp.execute("SELECT COUNT(1) FROM audit_log").fetchone()[0]
-        gauge("secondbrain_audit_log_rows", n_audit,
-              "Total audit-log rows (search, recall, forget, etc.).")
+        gauge(
+            "secondbrain_audit_log_rows",
+            n_audit,
+            "Total audit-log rows (search, recall, forget, etc.).",
+        )
     except Exception:
         # Table may not exist yet on a fresh DB; that's fine.
         pass
@@ -377,7 +438,10 @@ async def daemon_control(request: web.Request) -> web.Response:
 
 # ---- App construction ------------------------------------------------------
 
-def make_app(ctx: MCPContext, *, daemon: Any = None, cfg: GatewayConfig | None = None) -> web.Application:
+
+def make_app(
+    ctx: MCPContext, *, daemon: Any = None, cfg: GatewayConfig | None = None
+) -> web.Application:
     app = web.Application(middlewares=[_guard])
     app["ctx"] = ctx
     app["cfg"] = cfg or GatewayConfig()

@@ -1,5 +1,6 @@
 """LaunchAgent plist rendering — verify the template is valid and substitutes
 the operator-supplied values into a parseable plist."""
+
 from __future__ import annotations
 
 import plistlib

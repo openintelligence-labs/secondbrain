@@ -28,10 +28,7 @@ def test_default_innocuous_passes():
 def test_yaml_extends_defaults(tmp_path: Path):
     yaml_file = tmp_path / "deny.yaml"
     yaml_file.write_text(
-        "deny:\n"
-        "  - 'PaymentSystem Internal'\n"
-        "deny_app_only:\n"
-        "  - '^MyCustomVault$'\n"
+        "deny:\n  - 'PaymentSystem Internal'\ndeny_app_only:\n  - '^MyCustomVault$'\n"
     )
     dl = DenyList.from_yaml(yaml_file)
     # User-supplied

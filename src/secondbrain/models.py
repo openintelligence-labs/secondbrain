@@ -2,6 +2,7 @@
 
 Kept narrow on purpose: models grow as features land, not preemptively.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,9 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-CaptureSource = Literal[
-    "screen", "audio", "browser", "document", "clipboard", "wearable"
-]
+CaptureSource = Literal["screen", "audio", "browser", "document", "clipboard", "wearable"]
 
 
 class Capture(BaseModel):

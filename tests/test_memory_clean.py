@@ -1,4 +1,5 @@
 """OCR cleaner + substantive-text gate."""
+
 from __future__ import annotations
 
 from secondbrain.memory.clean import (
@@ -52,9 +53,9 @@ def test_looks_substantive_accepts_real_prose():
 
 def test_looks_substantive_rejects_short_or_noisy():
     assert looks_substantive("") is False
-    assert looks_substantive("A B C") is False              # too few words
-    assert looks_substantive("a b c d e") is False           # avg word len < 2.5
-    assert looks_substantive("• · ◊ · ●") is False           # no alpha
+    assert looks_substantive("A B C") is False  # too few words
+    assert looks_substantive("a b c d e") is False  # avg word len < 2.5
+    assert looks_substantive("• · ◊ · ●") is False  # no alpha
 
 
 def test_content_hash_is_whitespace_insensitive():

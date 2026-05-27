@@ -17,6 +17,7 @@ Wire the LLM path with:
     use_actants_scorer()                # uses default actants LLM
     use_actants_scorer(model="phi4-mini")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,18 +47,21 @@ def heuristic_importance(text: str) -> float:
     if not text:
         return 0.0
     n_signal = len(HIGH_SIGNAL.findall(text))
-    length_score = min(len(text) / 400.0, 2.0)        # up to 2 points for length
-    signal_score = min(n_signal * 1.5, 6.0)           # up to 6 points for content
+    length_score = min(len(text) / 400.0, 2.0)  # up to 2 points for length
+    signal_score = min(n_signal * 1.5, 6.0)  # up to 6 points for content
     base = 1.0 if text.strip() else 0.0
     return round(min(base + length_score + signal_score, 10.0), 2)
 
 
 # ----- actants-backed LLM scorer -----------------------------------------
 
+
 class _ImportanceJudgement(BaseModel):
     """Pydantic schema for `LLM.extract` so we get a clean float back."""
+
     importance: float = Field(
-        ge=0.0, le=10.0,
+        ge=0.0,
+        le=10.0,
         description="0..10 importance for personal-memory recall later.",
     )
     reason: str = Field(
@@ -87,6 +91,7 @@ class _ActantsScorer:
         with self._lock:
             if self._llm is None:
                 from actants import LLM
+
                 self._llm = LLM(model=self._model) if self._model else LLM()
         return self._llm
 
@@ -124,6 +129,7 @@ def _run_blocking(coro):
 
     # Caller already has a running loop. Don't fight it; run on a worker.
     import concurrent.futures
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
         return ex.submit(asyncio.run, coro).result()
 

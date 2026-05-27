@@ -10,6 +10,7 @@ GStreamer pipeline (`gst-python`) to consume the resulting PipeWire stream.
 This module currently ships the interface; the GStreamer + RestoreToken loop
 lands later.
 """
+
 from __future__ import annotations
 
 import sys
@@ -17,9 +18,7 @@ from collections.abc import AsyncIterator
 
 from secondbrain.capture.frame import Frame, FrameSource
 
-_NEEDS_GST = (
-    "Linux capture requires gst-python + dasbus + xdg-desktop-portal."
-)
+_NEEDS_GST = "Linux capture requires gst-python + dasbus + xdg-desktop-portal."
 
 
 class LinuxScreenSource(FrameSource):

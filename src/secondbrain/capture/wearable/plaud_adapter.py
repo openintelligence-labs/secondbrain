@@ -4,6 +4,7 @@ Plaud's export ships a JSON manifest per recording with `transcripts`,
 `speakers`, `created_at`. We map straight to MemoryStream `transcript`
 records, then through `record_to_capture`.
 """
+
 from __future__ import annotations
 
 import json

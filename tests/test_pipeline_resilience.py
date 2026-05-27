@@ -4,9 +4,10 @@ We assert two paths:
   - A-MEM linker raises → memory still lands in KG, linker_failures bumps.
   - Commitment extractor raises → memory still lands, commitment_failures bumps.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,7 +23,7 @@ from secondbrain.store.kg import KnowledgeGraph
 def _capture(text: str) -> Capture:
     return Capture(
         id="cap1",
-        captured_at=datetime.now(timezone.utc),
+        captured_at=datetime.now(UTC),
         app_name="TestApp",
         app_bundle_id="com.test",
         ax_text=text,
@@ -36,10 +37,12 @@ def pipeline(tmp_path: Path) -> MemoryPipeline:
     class _StubEmbedder:
         def embed_text(self, _text: str):
             import numpy as np
+
             return np.zeros(8, dtype="float32")
 
         def embed_texts(self, texts):
             import numpy as np
+
             return np.zeros((len(texts), 8), dtype="float32")
 
     return MemoryPipeline(
@@ -66,8 +69,6 @@ def test_commitment_extractor_failure_does_not_block_ingest(pipeline: MemoryPipe
         "secondbrain.memory.pipeline.extract_commitments",
         side_effect=RuntimeError("LLM timeout"),
     ):
-        out = pipeline.ingest(
-            _capture("I'll send the brief to Sam by Tuesday.")
-        )
+        out = pipeline.ingest(_capture("I'll send the brief to Sam by Tuesday."))
     assert out is not None
     assert pipeline.metrics.commitment_failures == 1

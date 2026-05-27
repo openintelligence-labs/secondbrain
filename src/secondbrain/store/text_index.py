@@ -1,4 +1,5 @@
 """tantivy BM25 index over chunks."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

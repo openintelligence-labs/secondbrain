@@ -7,6 +7,7 @@ Tier 3 (later): per-record DEKs derived via HKDF; biometric-gated session keys.
 This module owns the Python-visible primitives. Native paths (Swift sidecar
 for Secure Enclave, pywin32 for DPAPI/TPM) plug in over the same surface.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -66,10 +67,10 @@ class ZeroizingBuffer:
     _closed: bool = field(default=False, init=False)
 
     @classmethod
-    def of(cls, data: bytes) -> "ZeroizingBuffer":
+    def of(cls, data: bytes) -> ZeroizingBuffer:
         return cls(bytearray(data))
 
-    def __enter__(self) -> "ZeroizingBuffer":
+    def __enter__(self) -> ZeroizingBuffer:
         return self
 
     def __exit__(self, *_a) -> None:

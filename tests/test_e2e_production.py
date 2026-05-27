@@ -12,9 +12,10 @@ What this covers:
     /health (deep) and /metrics (Prometheus).
   * Response payloads contain the fields the TS client destructures.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -48,17 +49,24 @@ def _seed_full_stack(tmp_path: Path) -> MCPContext:
     )
     oltp = open_unencrypted(db)
     samples = [
-        ("e2e-1", "Slack", "com.slack",
-         "Sam Reed will ship the Snowflake migration by Friday."),
-        ("e2e-2", "Linear", "com.linear",
-         "Kafka consumer lag spiked at 14:02 on the ingest pipeline."),
-        ("e2e-3", "Mail", "com.apple.mail",
-         "Stripe billing token expiry hotfix shipped Wednesday afternoon."),
+        ("e2e-1", "Slack", "com.slack", "Sam Reed will ship the Snowflake migration by Friday."),
+        (
+            "e2e-2",
+            "Linear",
+            "com.linear",
+            "Kafka consumer lag spiked at 14:02 on the ingest pipeline.",
+        ),
+        (
+            "e2e-3",
+            "Mail",
+            "com.apple.mail",
+            "Stripe billing token expiry hotfix shipped Wednesday afternoon.",
+        ),
     ]
     for idx, (cid, app, bundle, text_body) in enumerate(samples):
         cap = Capture(
             id=cid,
-            captured_at=datetime(2026, 5, 12, 10 + idx, 0, tzinfo=timezone.utc),
+            captured_at=datetime(2026, 5, 12, 10 + idx, 0, tzinfo=UTC),
             app_name=app,
             app_bundle_id=bundle,
             ax_text=text_body,
@@ -66,9 +74,7 @@ def _seed_full_stack(tmp_path: Path) -> MCPContext:
         insert_capture(oltp, cap)
         indexer.index_capture(cap)
         pipe.ingest(cap)
-    return MCPContext(
-        kg=kg, vector=vector, text=text, embedder=embedder, oltp=oltp, oltp_path=db
-    )
+    return MCPContext(kg=kg, vector=vector, text=text, embedder=embedder, oltp=oltp, oltp_path=db)
 
 
 @pytest.fixture
@@ -105,8 +111,13 @@ async def test_search_shape_matches_SearchResponse(client: TestClient):
         hit = body["hits"][0]
         # Every field the TS Hit interface destructures must be present.
         for key in (
-            "chunk_uid", "capture_id", "chunk_index",
-            "snippet", "rrf_score", "bm25_rank", "dense_rank",
+            "chunk_uid",
+            "capture_id",
+            "chunk_index",
+            "snippet",
+            "rrf_score",
+            "bm25_rank",
+            "dense_rank",
         ):
             assert key in hit, f"/search hit missing {key!r}"
 
@@ -134,9 +145,13 @@ async def test_digest_shape_matches_DigestResponse(client: TestClient):
     r = await client.post("/digest", json={"date": "2026-05-12", "period": "day"})
     body = await r.json()
     for key in (
-        "period", "period_start", "themes",
-        "broken_promises", "suggested_followups",
-        "cited", "importance_sum",
+        "period",
+        "period_start",
+        "themes",
+        "broken_promises",
+        "suggested_followups",
+        "cited",
+        "importance_sum",
     ):
         assert key in body, f"/digest missing {key!r}"
 
@@ -157,9 +172,7 @@ async def test_add_note_returns_memory_id(client: TestClient):
 
 
 async def test_forget_returns_deleted_count(client: TestClient):
-    r = await client.post(
-        "/forget", json={"capture_id": "e2e-3", "reason": "e2e test cleanup"}
-    )
+    r = await client.post("/forget", json={"capture_id": "e2e-3", "reason": "e2e test cleanup"})
     body = await r.json()
     assert "deleted" in body
 

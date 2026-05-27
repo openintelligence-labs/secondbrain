@@ -5,6 +5,7 @@ The initial spike validated insert + MaxSim ranking shape. The native LanceDB
 MaxSim search API plug lands later; today we ship a Python MaxSim that's
 correct and fast enough for ~10k captures.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,7 +14,6 @@ from pathlib import Path
 import lancedb
 import numpy as np
 import pyarrow as pa
-
 
 PATCH_DIM = 128
 
@@ -40,17 +40,13 @@ class VisualStore:
         listing = self._db.list_tables()
         names = getattr(listing, "tables", listing)
         if self.table_name not in set(names):
-            self._db.create_table(
-                self.table_name, schema=_schema(self.dim), mode="create"
-            )
+            self._db.create_table(self.table_name, schema=_schema(self.dim), mode="create")
         self._tbl = self._db.open_table(self.table_name)
 
     def add(self, capture_id: str, patches: np.ndarray, created_at: float) -> None:
         arr = np.asarray(patches, dtype=np.float32)
         if arr.ndim != 2 or arr.shape[1] != self.dim:
-            raise ValueError(
-                f"patches must be (P, {self.dim}); got {arr.shape}"
-            )
+            raise ValueError(f"patches must be (P, {self.dim}); got {arr.shape}")
         self._tbl.add(
             [
                 {

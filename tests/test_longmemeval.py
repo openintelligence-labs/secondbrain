@@ -3,10 +3,11 @@
 Synthetic 10-case mini-set (axis-tagged) so we can prove the harness works
 without depending on the public LongMemEval dataset (which isn't redistributable).
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
@@ -20,8 +21,10 @@ from secondbrain.store.vector import VectorStore
 
 def _cap(cid: str, text: str) -> Capture:
     return Capture(
-        id=cid, captured_at=datetime.now(timezone.utc),
-        app_name="Test", ax_text=text,
+        id=cid,
+        captured_at=datetime.now(UTC),
+        app_name="Test",
+        ax_text=text,
     )
 
 
@@ -43,15 +46,28 @@ def test_longmemeval_harness_runs(tmp_path: Path):
     cases = tmp_path / "lme.jsonl"
     cases.write_text(
         "\n".join(
-            json.dumps(c) for c in [
-                {"axis": "extraction", "query": "snowflake migration friday",
-                 "expected_capture_ids": ["snow1"]},
-                {"axis": "extraction", "query": "kafka consumer lag",
-                 "expected_capture_ids": ["kafka1"]},
-                {"axis": "temporal", "query": "stripe billing token expiry",
-                 "expected_capture_ids": ["stripe1"]},
-                {"axis": "abstention", "query": "marsupial breeding seasons",
-                 "expected_capture_ids": []},
+            json.dumps(c)
+            for c in [
+                {
+                    "axis": "extraction",
+                    "query": "snowflake migration friday",
+                    "expected_capture_ids": ["snow1"],
+                },
+                {
+                    "axis": "extraction",
+                    "query": "kafka consumer lag",
+                    "expected_capture_ids": ["kafka1"],
+                },
+                {
+                    "axis": "temporal",
+                    "query": "stripe billing token expiry",
+                    "expected_capture_ids": ["stripe1"],
+                },
+                {
+                    "axis": "abstention",
+                    "query": "marsupial breeding seasons",
+                    "expected_capture_ids": [],
+                },
             ]
         )
     )

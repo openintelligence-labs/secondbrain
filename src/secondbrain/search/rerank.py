@@ -4,11 +4,11 @@ Defers actual model load until first call. If the model fails to load (no
 internet for first download), `Reranker.rerank` falls back to identity so the
 search path never breaks.
 """
+
 from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from typing import Any
 
 DEFAULT_MODEL = "mixedbread-ai/mxbai-rerank-base-v2"
 
@@ -40,6 +40,7 @@ class Reranker:
                 return True
             try:
                 from sentence_transformers import CrossEncoder
+
                 self._model = CrossEncoder(
                     self.cfg.model,
                     device=self.cfg.device,

@@ -22,6 +22,7 @@ work once the matching extra is installed (`pip install secondbrain[openai]`,
 etc., or `secondbrain[byo-llm]` for all five). An unrecognised provider
 name is forwarded to actants, which raises a clear error.
 """
+
 from __future__ import annotations
 
 import os

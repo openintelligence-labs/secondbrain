@@ -10,6 +10,8 @@ from secondbrain.capture.wearable.limitless_import import (
 )
 from secondbrain.capture.wearable.memorystream import (
     import_jsonl as ms_import,
+)
+from secondbrain.capture.wearable.memorystream import (
     record_to_capture,
 )
 from secondbrain.capture.wearable.omi_adapter import import_export as omi_import
@@ -58,7 +60,9 @@ def test_memorystream_jsonl_round_trip(tmp_path: Path):
             }
         )
         + "\n"
-        + json.dumps({"type": "event", "ts": time.time(), "device": "test", "kind": "battery", "value": 80})
+        + json.dumps(
+            {"type": "event", "ts": time.time(), "device": "test", "kind": "battery", "value": 80}
+        )
         + "\n"
     )
     caps = list(ms_import(path))
@@ -103,10 +107,7 @@ def test_omi_adapter(tmp_path: Path):
 def test_limitless_orphan_import(tmp_path: Path):
     path = tmp_path / "lim.jsonl"
     path.write_text(
-        "\n".join(
-            json.dumps({"timestamp": time.time() - i, "text": f"line {i}"})
-            for i in range(3)
-        )
+        "\n".join(json.dumps({"timestamp": time.time() - i, "text": f"line {i}"}) for i in range(3))
     )
     caps = list(limitless_import(path))
     assert len(caps) == 3
@@ -114,10 +115,7 @@ def test_limitless_orphan_import(tmp_path: Path):
 
 def test_bee_orphan_import(tmp_path: Path):
     path = tmp_path / "bee.jsonl"
-    path.write_text(
-        json.dumps({"created_at": time.time() - 60, "transcript": "Sam: hi"})
-        + "\n"
-    )
+    path.write_text(json.dumps({"created_at": time.time() - 60, "transcript": "Sam: hi"}) + "\n")
     caps = list(bee_import(path))
     assert len(caps) == 1
     assert caps[0].app_name == "bee-pendant"

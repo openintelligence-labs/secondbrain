@@ -1,4 +1,5 @@
 """Captures repository — write/read against the OLTP DB."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,6 @@ import sqlite3
 from collections.abc import Iterable
 
 from secondbrain.models import Capture
-
 
 COLUMNS = (
     "id, source, captured_at, app_name, app_bundle_id, window_title, url, "
@@ -17,8 +17,7 @@ COLUMNS = (
 
 def insert(conn: sqlite3.Connection, capture: Capture) -> None:
     conn.execute(
-        f"INSERT INTO captures ({COLUMNS}) "
-        f"VALUES ({', '.join('?' * len(COLUMNS.split(', ')))})",
+        f"INSERT INTO captures ({COLUMNS}) VALUES ({', '.join('?' * len(COLUMNS.split(', ')))})",
         (
             capture.id,
             capture.source,

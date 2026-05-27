@@ -18,6 +18,7 @@ Caveats this module handles:
 - Games / Metal-rendered surfaces / Figma canvas return empty trees → cascade
   falls through to dHash.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -30,8 +31,8 @@ _IS_MACOS = sys.platform == "darwin"
 
 if _IS_MACOS:
     from ApplicationServices import (  # type: ignore[import-not-found]
-        AXUIElementCopyAttributeValue,
         AXUIElementCopyAttributeNames,
+        AXUIElementCopyAttributeValue,
         AXUIElementCreateApplication,
         AXUIElementSetAttributeValue,
         kAXErrorSuccess,
@@ -86,9 +87,7 @@ def _maybe_enable_enhanced(app_elem: object) -> bool:
     if not _IS_MACOS:
         return False
     try:
-        AXUIElementSetAttributeValue(
-            app_elem, "AXEnhancedUserInterface", True
-        )
+        AXUIElementSetAttributeValue(app_elem, "AXEnhancedUserInterface", True)
         return True
     except Exception:
         return False

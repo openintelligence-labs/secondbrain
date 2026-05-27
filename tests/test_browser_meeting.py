@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.capture.browser import chromium_history
@@ -22,7 +22,9 @@ def _make_chrome_db(path: Path) -> Path:
     conn.execute(
         "CREATE TABLE urls(id INTEGER PRIMARY KEY, url TEXT, title TEXT, last_visit_time INTEGER)"
     )
-    base = (datetime(2026, 5, 5, tzinfo=timezone.utc) - datetime(1601, 1, 1, tzinfo=timezone.utc)).total_seconds() * 1_000_000
+    base = (
+        datetime(2026, 5, 5, tzinfo=UTC) - datetime(1601, 1, 1, tzinfo=UTC)
+    ).total_seconds() * 1_000_000
     conn.execute(
         "INSERT INTO urls(url, title, last_visit_time) VALUES (?, ?, ?)",
         ("https://example.com/snowflake", "Snowflake article", int(base)),
@@ -61,16 +63,25 @@ def test_meeting_then_browser_unified_query(tmp_path: Path):
         "started_at": "2026-05-05T11:00:00Z",
         "title": "Snowflake migration sync",
         "segments": [
-            {"id": "s1", "speaker_id": "u-sam", "speaker_name": "Sam Reed",
-             "text": "We need the Snowflake migration done by Friday.",
-             "start_ms": 0, "end_ms": 8000},
-            {"id": "s2", "speaker_id": "u-pat", "speaker_name": "Pat Lane",
-             "text": "I will draft the rollback plan tonight.",
-             "start_ms": 9000, "end_ms": 14000},
+            {
+                "id": "s1",
+                "speaker_id": "u-sam",
+                "speaker_name": "Sam Reed",
+                "text": "We need the Snowflake migration done by Friday.",
+                "start_ms": 0,
+                "end_ms": 8000,
+            },
+            {
+                "id": "s2",
+                "speaker_id": "u-pat",
+                "speaker_name": "Pat Lane",
+                "text": "I will draft the rollback plan tonight.",
+                "start_ms": 9000,
+                "end_ms": 14000,
+            },
         ],
     }
-    ingest_meeting(meeting, indexer=indexer, pipe=pipe,
-                   resolver=EntityResolver(kg=kg))
+    ingest_meeting(meeting, indexer=indexer, pipe=pipe, resolver=EntityResolver(kg=kg))
 
     # Browser visit at 10am: an article on Snowflake.
     db = _make_chrome_db(tmp_path / "History")

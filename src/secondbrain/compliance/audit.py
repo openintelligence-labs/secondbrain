@@ -7,6 +7,7 @@ cited. This is the primary GDPR Art. 30 evidence and the input to
 Schema lives next to the OLTP DB (same encryption regime). Exports sign the
 full log so external auditors can verify nothing was altered.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -15,7 +16,6 @@ import json
 import sqlite3
 import time
 from dataclasses import dataclass
-
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS audit_log (

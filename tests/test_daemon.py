@@ -4,6 +4,7 @@ Drives a SyntheticFrameSource through the daemon end-to-end (without
 encryption, to keep CI portable). Asserts capture count + gate metrics
 match expectations.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,29 +39,59 @@ def _build_frames() -> list[Frame]:
     # Real-prose ax_text so the memory pipeline's substantive-text gate
     # (`looks_substantive`) doesn't reject these as OCR confetti.
     return [
-        Frame(captured_at=now(), image=a, app_name="Code",
-              app_bundle_id="com.microsoft.VSCode", window_title="repo",
-              ax_text="Refactored the auth module to use Argon2.",
-              dirty_rect_fraction=0.5),
-        Frame(captured_at=now(), image=noise(4), app_name="1Password 8",
-              app_bundle_id="com.1password", window_title="All Vaults",
-              dirty_rect_fraction=0.5),
-        Frame(captured_at=now(), image=b, app_name="Code",
-              app_bundle_id="com.microsoft.VSCode", window_title="repo",
-              ax_text="Opened a PR with the Snowflake migration plan.",
-              dirty_rect_fraction=0.5),
-        Frame(captured_at=now(), image=b, app_name="Code",
-              app_bundle_id="com.microsoft.VSCode", window_title="repo",
-              ax_text="Opened a PR with the Snowflake migration plan.",
-              dirty_rect_fraction=0.5),
-        Frame(captured_at=now(), image=noise(5), app_name="Code",
-              app_bundle_id="com.microsoft.VSCode", window_title="repo",
-              ax_text="Reviewed Linda's pull request comments line by line.",
-              dirty_rect_fraction=0.001),
-        Frame(captured_at=now(), image=c, app_name="Code",
-              app_bundle_id="com.microsoft.VSCode", window_title="repo",
-              ax_text="Merged the dashboard branch after the e2e suite passed.",
-              dirty_rect_fraction=0.5),
+        Frame(
+            captured_at=now(),
+            image=a,
+            app_name="Code",
+            app_bundle_id="com.microsoft.VSCode",
+            window_title="repo",
+            ax_text="Refactored the auth module to use Argon2.",
+            dirty_rect_fraction=0.5,
+        ),
+        Frame(
+            captured_at=now(),
+            image=noise(4),
+            app_name="1Password 8",
+            app_bundle_id="com.1password",
+            window_title="All Vaults",
+            dirty_rect_fraction=0.5,
+        ),
+        Frame(
+            captured_at=now(),
+            image=b,
+            app_name="Code",
+            app_bundle_id="com.microsoft.VSCode",
+            window_title="repo",
+            ax_text="Opened a PR with the Snowflake migration plan.",
+            dirty_rect_fraction=0.5,
+        ),
+        Frame(
+            captured_at=now(),
+            image=b,
+            app_name="Code",
+            app_bundle_id="com.microsoft.VSCode",
+            window_title="repo",
+            ax_text="Opened a PR with the Snowflake migration plan.",
+            dirty_rect_fraction=0.5,
+        ),
+        Frame(
+            captured_at=now(),
+            image=noise(5),
+            app_name="Code",
+            app_bundle_id="com.microsoft.VSCode",
+            window_title="repo",
+            ax_text="Reviewed Linda's pull request comments line by line.",
+            dirty_rect_fraction=0.001,
+        ),
+        Frame(
+            captured_at=now(),
+            image=c,
+            app_name="Code",
+            app_bundle_id="com.microsoft.VSCode",
+            window_title="repo",
+            ax_text="Merged the dashboard branch after the e2e suite passed.",
+            dirty_rect_fraction=0.5,
+        ),
     ]
 
 

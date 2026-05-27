@@ -7,6 +7,7 @@ Spawns the bundled `secondbrain-capture` Swift sidecar (built via
 Reconnect on crash: the source restarts the subprocess up to
 `max_restarts` times before propagating the failure. Bounded backoff.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +18,7 @@ import os
 import shutil
 import sys
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -36,17 +37,12 @@ def _default_sidecar_path() -> Path:
       2. The release build under `swift/SecondBrainCapture/.build/release/`.
       3. Anything named `secondbrain-capture` on `PATH`.
     """
-    if (env := os.environ.get("SECONDBRAIN_CAPTURE_BIN")):
+    if env := os.environ.get("SECONDBRAIN_CAPTURE_BIN"):
         return Path(env)
 
     repo_root = Path(__file__).resolve().parents[3]
     candidate = (
-        repo_root
-        / "swift"
-        / "SecondBrainCapture"
-        / ".build"
-        / "release"
-        / "secondbrain-capture"
+        repo_root / "swift" / "SecondBrainCapture" / ".build" / "release" / "secondbrain-capture"
     )
     if candidate.exists():
         return candidate
@@ -100,8 +96,10 @@ class MacOSScreenSource:
     def _build_args(self) -> list[str]:
         args = [
             str(self.sidecar),
-            "--display", str(self.display_index),
-            "--fps", str(self.fps),
+            "--display",
+            str(self.display_index),
+            "--fps",
+            str(self.fps),
         ]
         if self.pixel_mode == "png":
             args.append("--emit-png")
@@ -160,11 +158,9 @@ class MacOSScreenSource:
                     f"restarts. Last sidecar message: "
                     f"{self._last_error or '(none)'}"
                 )
-            await asyncio.sleep(min(2 ** restarts, 10))
+            await asyncio.sleep(min(2**restarts, 10))
 
-    async def _read_ndjson(
-        self, stdout: asyncio.StreamReader
-    ) -> AsyncIterator[Frame]:
+    async def _read_ndjson(self, stdout: asyncio.StreamReader) -> AsyncIterator[Frame]:
         while True:
             line = await stdout.readline()
             if not line:
@@ -191,7 +187,7 @@ class MacOSScreenSource:
     def _parse_frame(self, event: dict) -> Frame | None:
         try:
             ts = float(event["ts"])
-            captured_at = datetime.fromtimestamp(ts, tz=timezone.utc)
+            captured_at = datetime.fromtimestamp(ts, tz=UTC)
         except (KeyError, ValueError):
             return None
 
@@ -227,6 +223,7 @@ class MacOSScreenSource:
         ax_digest = None
         try:
             from secondbrain.capture.ax_macos import snapshot_focused_app
+
             snap = snapshot_focused_app()
             if snap.error is None:
                 ax_app = snap.app_name
@@ -266,7 +263,7 @@ class MacOSScreenSource:
             try:
                 self._proc.terminate()
                 await asyncio.wait_for(self._proc.wait(), timeout=2.0)
-            except (asyncio.TimeoutError, ProcessLookupError):
+            except (TimeoutError, ProcessLookupError):
                 with contextlib_suppress(ProcessLookupError):
                     self._proc.kill()
 
@@ -275,7 +272,9 @@ class MacOSScreenSource:
 class contextlib_suppress:
     def __init__(self, *exc):
         self.exc = exc
+
     def __enter__(self):
         return self
+
     def __exit__(self, et, ev, tb):
         return et is not None and issubclass(et, self.exc)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
@@ -19,7 +19,7 @@ from secondbrain.store.vector import VectorStore
 def _cap(cid: str, text: str) -> Capture:
     return Capture(
         id=cid,
-        captured_at=datetime.now(timezone.utc),
+        captured_at=datetime.now(UTC),
         app_name="Slack",
         app_bundle_id="com.slack",
         ax_text=text,

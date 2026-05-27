@@ -21,14 +21,22 @@ dependencies = [
     "kuzu>=0.4",
     "keyring>=24.0",
     "lancedb>=0.10",
+    "mcp>=1.0",
     "numpy>=1.26",
     "pillow>=10.0",
     "pyarrow>=15.0",
     "pydantic>=2.6",
+    "scikit-image>=0.22",
     "PyYAML>=6.0",
     "sqlcipher3-wheels>=0.5",
     "structlog>=24.1",
     "tantivy>=0.22",
+    # PyObjC: macOS AX-tree walker imports ApplicationServices and Cocoa at
+    # module load when sys.platform == "darwin". Install only on macOS so
+    # CI/users on other OSes don't pull these in for nothing.
+    "pyobjc-core>=10.0 ; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa>=10.0 ; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10.0 ; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]

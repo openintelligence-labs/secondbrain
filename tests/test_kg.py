@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
@@ -34,7 +34,7 @@ def test_extractor_picks_up_persons_and_importance():
         "c1",
         "Sam Reed said the Snowflake migration deadline is Friday and we will "
         "ship the demo at 9am on Tuesday.",
-        datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc),
+        datetime(2026, 5, 5, 14, 0, tzinfo=UTC),
     )
     mem = extract(cap)
     assert mem is not None
@@ -46,13 +46,11 @@ def test_extractor_picks_up_persons_and_importance():
 
 def test_pipeline_inserts_provenance_and_persons(tmp_path: Path):
     kg, pipe = _build_pipeline(tmp_path)
-    when = datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc)
+    when = datetime(2026, 5, 5, 14, 0, tzinfo=UTC)
     cap = _cap("c1", "Sam Reed will email approvals tomorrow about Snowflake.", when)
     mem = pipe.ingest(cap)
     assert mem is not None
-    facts = kg.facts_about(
-        kg.find_person_by_alias_or_default("Sam Reed") if False else _person(kg)
-    )
+    facts = kg.facts_about(kg.find_person_by_alias_or_default("Sam Reed") if False else _person(kg))
     assert any("Snowflake" in f["content"] for f in facts)
 
 
@@ -65,10 +63,8 @@ def _person(kg: KnowledgeGraph) -> str:
 
 def test_amem_links_similar_memories(tmp_path: Path):
     kg, pipe = _build_pipeline(tmp_path)
-    base = datetime(2026, 5, 5, tzinfo=timezone.utc)
-    pipe.ingest(
-        _cap("a", "Snowflake migration kickoff with Sam Reed about budget.", base)
-    )
+    base = datetime(2026, 5, 5, tzinfo=UTC)
+    pipe.ingest(_cap("a", "Snowflake migration kickoff with Sam Reed about budget.", base))
     pipe.ingest(
         _cap("b", "Snowflake budget review with Sam Reed Q3 numbers.", base + timedelta(hours=1))
     )
@@ -80,8 +76,8 @@ def test_amem_links_similar_memories(tmp_path: Path):
 
 def test_bi_temporal_facts_about_as_of(tmp_path: Path):
     kg, pipe = _build_pipeline(tmp_path)
-    t1 = datetime(2026, 5, 5, tzinfo=timezone.utc)
-    t2 = datetime(2026, 5, 6, tzinfo=timezone.utc)
+    t1 = datetime(2026, 5, 5, tzinfo=UTC)
+    t2 = datetime(2026, 5, 6, tzinfo=UTC)
     pipe.ingest(_cap("c1", "Sam Reed leads the Snowflake migration.", t1))
     pipe.ingest(_cap("c2", "Sam Reed handed off Snowflake to Pat Lane.", t2))
     pid = _person(kg)
@@ -94,13 +90,9 @@ def test_bi_temporal_facts_about_as_of(tmp_path: Path):
 
 def test_forget_capture_cascades(tmp_path: Path):
     kg, pipe = _build_pipeline(tmp_path)
-    base = datetime(2026, 5, 5, tzinfo=timezone.utc)
-    pipe.ingest(
-        _cap("c-keep", "Snowflake review with Sam Reed cost details.", base)
-    )
-    pipe.ingest(
-        _cap("c-forget", "Banking PIN reminder for Sam Reed.", base + timedelta(seconds=1))
-    )
+    base = datetime(2026, 5, 5, tzinfo=UTC)
+    pipe.ingest(_cap("c-keep", "Snowflake review with Sam Reed cost details.", base))
+    pipe.ingest(_cap("c-forget", "Banking PIN reminder for Sam Reed.", base + timedelta(seconds=1)))
     deleted = kg.forget_capture("c-forget")
     assert deleted == 1
     # Captures table now has only one capture

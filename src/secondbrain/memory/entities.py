@@ -8,11 +8,11 @@ plus a HAS_ALIAS edge for every observed email/handle/calendar-name.
 Faces and voiceprints plug in at the same `EntityResolver` API once those
 capture sources land.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from uuid import uuid4
 
 from secondbrain.store.kg import KnowledgeGraph
 
@@ -53,10 +53,9 @@ class EntityResolver:
         )
         if existing.get_next()[0] == 0:
             self.kg.upsert_person(person_id, name=name, primary_email=email)
-        if email:
-            # Alias check is internal to add_alias's idempotence guard.
-            if not self.kg.find_person_by_alias(email):
-                self.kg.add_alias(person_id, email, "email")
+        # Alias check is internal to add_alias's idempotence guard.
+        if email and not self.kg.find_person_by_alias(email):
+            self.kg.add_alias(person_id, email, "email")
         if handle and not self.kg.find_person_by_alias(handle):
             self.kg.add_alias(person_id, handle, "handle")
         return person_id
@@ -68,6 +67,4 @@ class EntityResolver:
         will eventually produce richer hints.
         """
         emails = EMAIL_RE.findall(text)
-        return self.resolve_or_create_person(
-            default_name, email=emails[0] if emails else None
-        )
+        return self.resolve_or_create_person(default_name, email=emails[0] if emails else None)

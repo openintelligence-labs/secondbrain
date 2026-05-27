@@ -17,18 +17,19 @@ adapter is a thin shell that maps tool names → these functions and validates
 the JSON schemas. That way the smoke test exercises the *tool bodies*
 without spinning up a live network transport.
 """
+
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from secondbrain.compliance.audit import AuditLog
-from secondbrain.embed.text import TextEmbedder
 from secondbrain.embed.stub import StubEmbedder
+from secondbrain.embed.text import TextEmbedder
 from secondbrain.memory.entities import _stable_id
 from secondbrain.search.hybrid import HybridSearcher
 from secondbrain.search.kg_filter import KGAwareSearcher
@@ -135,6 +136,7 @@ TOOL_DEFS: list[ToolDef] = [
 @dataclass
 class MCPContext:
     """Bag of stack handles the tool implementations need."""
+
     kg: KnowledgeGraph
     vector: VectorStore
     text: TextIndex
@@ -152,11 +154,12 @@ class MCPContext:
 def _parse_dt(s: str) -> datetime:
     dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
 # ----- Tool implementations ------------------------------------------------
+
 
 def t_memory_search(ctx: MCPContext, **args) -> dict[str, Any]:
     query = args["query"]
@@ -187,8 +190,12 @@ def t_recall_timeline(ctx: MCPContext, **args) -> dict[str, Any]:
     end = _parse_dt(args["end"])
     rows = ctx.kg.events_at(start, end, limit=200)
     cited = [r["memory_id"] for r in rows]
-    ctx.audit.record("recall_timeline", actor="mcp", cited=cited,
-                     detail={"start": args["start"], "end": args["end"]})
+    ctx.audit.record(
+        "recall_timeline",
+        actor="mcp",
+        cited=cited,
+        detail={"start": args["start"], "end": args["end"]},
+    )
     return {"events": rows}
 
 
@@ -198,9 +205,9 @@ def t_get_person(ctx: MCPContext, **args) -> dict[str, Any]:
     if not pid:
         return {"error": "need name or id"}
     facts = ctx.kg.facts_about(pid, limit=20)
-    ctx.audit.record("get_person", actor="mcp",
-                     cited=[f["memory_id"] for f in facts],
-                     detail={"person_id": pid})
+    ctx.audit.record(
+        "get_person", actor="mcp", cited=[f["memory_id"] for f in facts], detail={"person_id": pid}
+    )
     return {"person_id": pid, "facts": facts}
 
 
@@ -215,28 +222,36 @@ def t_commitments(ctx: MCPContext, **args) -> dict[str, Any]:
     serialized = []
     for row in rows:
         d = row.get("due_at")
-        serialized.append({
-            "id": row["id"],
-            "content": row["content"],
-            "due_at": d.isoformat() if d else None,
-            "status": row["status"],
-            "owner_pid": row["owner_pid"],
-        })
-    ctx.audit.record("commitments", actor="mcp",
-                     detail={"status": status, "due_before": due_before})
+        serialized.append(
+            {
+                "id": row["id"],
+                "content": row["content"],
+                "due_at": d.isoformat() if d else None,
+                "status": row["status"],
+                "owner_pid": row["owner_pid"],
+            }
+        )
+    ctx.audit.record(
+        "commitments", actor="mcp", detail={"status": status, "due_before": due_before}
+    )
     return {"commitments": serialized}
 
 
 def t_daily_digest(ctx: MCPContext, **args) -> dict[str, Any]:
     from datetime import date as date_cls
+
     from secondbrain.memory.digest import render
 
     period = args.get("period", "day")
     when = args.get("date")
     on = date_cls.fromisoformat(when) if when else date_cls.today()
     digest = render(ctx.kg, period, day=on)
-    ctx.audit.record("daily_digest", actor="mcp", cited=digest.cited_memories,
-                     detail={"period": period, "date": on.isoformat()})
+    ctx.audit.record(
+        "daily_digest",
+        actor="mcp",
+        cited=digest.cited_memories,
+        detail={"period": period, "date": on.isoformat()},
+    )
     return {
         "period": digest.period,
         "period_start": digest.period_start.isoformat(),
@@ -252,10 +267,9 @@ def t_add_note(ctx: MCPContext, **args) -> dict[str, Any]:
     text = args["text"]
     tags = args.get("tags", [])
     nid = uuid4().hex
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ctx.kg.upsert_memory(
-        nid, "semantic", text,
-        valid_from=now, valid_to=None, ingested_at=now, importance=5.0
+        nid, "semantic", text, valid_from=now, valid_to=None, ingested_at=now, importance=5.0
     )
     ctx.audit.record("add_note", actor="mcp", cited=[nid], detail={"tags": tags})
     return {"memory_id": nid}
@@ -280,9 +294,14 @@ def t_forget(ctx: MCPContext, **args) -> dict[str, Any]:
             confirm(f"SecondBrain wants to forget {target}: {reason}")
         except BiometricDenied as e:
             ctx.audit.record(
-                "forget.denied", actor="mcp",
-                detail={"reason": reason, "capture_id": cap_id,
-                        "entity_id": entity_id, "auth_error": str(e)},
+                "forget.denied",
+                actor="mcp",
+                detail={
+                    "reason": reason,
+                    "capture_id": cap_id,
+                    "entity_id": entity_id,
+                    "auth_error": str(e),
+                },
             )
             return {"deleted": 0, "reason": reason, "error": "biometric-denied"}
 
@@ -291,13 +310,16 @@ def t_forget(ctx: MCPContext, **args) -> dict[str, Any]:
         n_deleted += ctx.kg.forget_capture(cap_id)
     if entity_id:
         # Delete the Person and any MemoryNodes whose only mention was them.
-        ctx.kg._conn.execute(
-            "MATCH (p:Person {id:$id}) DETACH DELETE p", {"id": entity_id}
-        )
+        ctx.kg._conn.execute("MATCH (p:Person {id:$id}) DETACH DELETE p", {"id": entity_id})
     ctx.audit.record(
-        "forget", actor="mcp",
-        detail={"reason": reason, "capture_id": cap_id, "entity_id": entity_id,
-                "n_deleted": n_deleted},
+        "forget",
+        actor="mcp",
+        detail={
+            "reason": reason,
+            "capture_id": cap_id,
+            "entity_id": entity_id,
+            "n_deleted": n_deleted,
+        },
     )
     return {"deleted": n_deleted, "reason": reason}
 
@@ -331,6 +353,7 @@ def make_default_context(*, db: Path, use_stub_embedder: bool = False) -> MCPCon
     """Construct an MCPContext rooted at the standard SecondBrain DB layout."""
     base = db.parent
     from secondbrain.store.oltp import open_unencrypted
+
     return MCPContext(
         kg=KnowledgeGraph(db_path=base / "kg"),
         vector=VectorStore(db_path=base / "lance"),

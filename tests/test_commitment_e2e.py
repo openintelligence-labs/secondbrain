@@ -5,10 +5,11 @@ Before this test existed, the daemon never wrote a single Commitment node —
 the pipeline only called `extract.py::extract`, which emits episodic
 MemoryNodes. The MCP tool I'd already shipped queried an empty table.
 """
+
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -38,7 +39,7 @@ def test_daemon_writes_commitment_nodes(tmp_path: Path):
     cfg = DaemonConfig(db_path=db, use_encryption=False, use_stub_embedder=True)
     daemon = Daemon(cfg)
 
-    base = datetime(2026, 5, 7, 12, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 5, 7, 12, 0, tzinfo=UTC)
     frames = [
         _frame_with_commitment(
             "Sam Reed: I'll send the Snowflake migration design doc by Friday.",
@@ -73,12 +74,18 @@ def test_mcp_commitments_returns_real_rows(tmp_path: Path):
     cfg = DaemonConfig(db_path=db, use_encryption=False, use_stub_embedder=True)
     daemon = Daemon(cfg)
 
-    asyncio.run(daemon.run(SyntheticFrameSource([
-        _frame_with_commitment(
-            "I'll send the Snowflake design doc by Friday.",
-            datetime(2026, 5, 7, 12, 0, tzinfo=timezone.utc),
-        ),
-    ])))
+    asyncio.run(
+        daemon.run(
+            SyntheticFrameSource(
+                [
+                    _frame_with_commitment(
+                        "I'll send the Snowflake design doc by Friday.",
+                        datetime(2026, 5, 7, 12, 0, tzinfo=UTC),
+                    ),
+                ]
+            )
+        )
+    )
 
     assert daemon._memory is not None
     assert daemon._indexer is not None
@@ -98,7 +105,7 @@ def test_mcp_commitments_returns_real_rows(tmp_path: Path):
     assert "id" in item
     assert "content" in item
     assert "status" in item
-    assert "due_at" in item   # may be None or ISO string
+    assert "due_at" in item  # may be None or ISO string
 
 
 def test_due_before_filter(tmp_path: Path):
@@ -106,17 +113,23 @@ def test_due_before_filter(tmp_path: Path):
     cfg = DaemonConfig(db_path=db, use_encryption=False, use_stub_embedder=True)
     daemon = Daemon(cfg)
 
-    base = datetime(2026, 5, 7, 12, 0, tzinfo=timezone.utc)
-    asyncio.run(daemon.run(SyntheticFrameSource([
-        _frame_with_commitment(
-            "I'll send the doc tomorrow.",
-            base,
-        ),
-        _frame_with_commitment(
-            "I will ship the code by Friday.",
-            base,
-        ),
-    ])))
+    base = datetime(2026, 5, 7, 12, 0, tzinfo=UTC)
+    asyncio.run(
+        daemon.run(
+            SyntheticFrameSource(
+                [
+                    _frame_with_commitment(
+                        "I'll send the doc tomorrow.",
+                        base,
+                    ),
+                    _frame_with_commitment(
+                        "I will ship the code by Friday.",
+                        base,
+                    ),
+                ]
+            )
+        )
+    )
 
     assert daemon._memory is not None
     # Filter for things due before "tomorrow" — i.e. only "today/tonight" stuff.

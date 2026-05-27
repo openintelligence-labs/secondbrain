@@ -5,6 +5,7 @@ Pass criteria:
 - BM25 query returns sane top-K
 - RRF k=60 fusion with a stub dense ranker produces a fused list
 """
+
 from __future__ import annotations
 
 import shutil
@@ -14,20 +15,36 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import tantivy  # noqa: E402
 from _runner import record  # noqa: E402
 
-import tantivy  # noqa: E402
-
-
 WORDS = [
-    "snowflake", "sam", "meeting", "snowflake-data", "quarterly", "review",
-    "stripe", "billing", "auth", "token", "kafka", "consumer", "lag", "index",
-    "embedding", "retrieval", "graph", "bi-temporal", "memory", "agent",
+    "snowflake",
+    "sam",
+    "meeting",
+    "snowflake-data",
+    "quarterly",
+    "review",
+    "stripe",
+    "billing",
+    "auth",
+    "token",
+    "kafka",
+    "consumer",
+    "lag",
+    "index",
+    "embedding",
+    "retrieval",
+    "graph",
+    "bi-temporal",
+    "memory",
+    "agent",
 ]
 
 
 def synth_docs(n: int) -> list[tuple[int, str]]:
     import random
+
     rng = random.Random(42)
     docs = []
     for i in range(n):
@@ -68,23 +85,18 @@ def main() -> None:
         t0 = time.perf_counter()
         top = searcher.search(query, 50).hits
         bm25_ms = (time.perf_counter() - t0) * 1000
-        bm25_ranklist = [
-            searcher.doc(doc_addr)["id"][0] for _score, doc_addr in top
-        ]
+        bm25_ranklist = [searcher.doc(doc_addr)["id"][0] for _score, doc_addr in top]
 
         # Stub dense rank: random permutation seeded on the query
         import random
+
         rng = random.Random(7)
         dense_ranklist = list(range(50))
         rng.shuffle(dense_ranklist)
 
         fused = rrf([bm25_ranklist[:50], dense_ranklist[:50]], k=60)
 
-        passed = (
-            len(bm25_ranklist) > 0
-            and len(fused) > 0
-            and fused[0][1] > fused[-1][1]
-        )
+        passed = len(bm25_ranklist) > 0 and len(fused) > 0 and fused[0][1] > fused[-1][1]
         record(
             "S0-06",
             passed,

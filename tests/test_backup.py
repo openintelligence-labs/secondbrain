@@ -1,5 +1,6 @@
 """Backup + restore tests — round-trip with hash validation, refuse to clobber,
 and reject tampered archives."""
+
 from __future__ import annotations
 
 import shutil
@@ -94,6 +95,7 @@ def test_tampered_archive_fails_hash_check(tmp_path: Path) -> None:
                 data = b"EVIL" + data[4:]
             member.size = len(data)
             import io as _io
+
             dst.addfile(member, _io.BytesIO(data))
 
     shutil.rmtree(db.parent)
@@ -107,6 +109,7 @@ def test_archive_with_path_traversal_rejected(tmp_path: Path) -> None:
     archive = tmp_path / "bad.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
         import io as _io
+
         manifest = (
             '{"schema":"secondbrain.backup.v1","created_at":"x",'
             '"secondbrain_version":"x","schema_version":1,'

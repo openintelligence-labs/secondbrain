@@ -19,15 +19,15 @@ Bi-temporal query pattern: every relation carries `valid_from` and `valid_to`,
 so we can answer "what did the system know about X as of <date>?" via Cypher
 filters on those bounds — validated by the initial spike at p50 0.41ms.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import kuzu
-
 
 SCHEMA_DDL: list[str] = [
     # Nodes ----------------------------------------------------------------
@@ -95,7 +95,7 @@ def _ts(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -104,7 +104,7 @@ def _from_ts(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -131,6 +131,7 @@ class KnowledgeGraph:
         # (or env override) for production-realistic limits while keeping
         # parallel-test friendliness.
         import os
+
         max_gib = int(os.environ.get("SECONDBRAIN_KUZU_MAX_DB_GIB", "16"))
         self._db = kuzu.Database(
             str(db_file),
@@ -169,9 +170,7 @@ class KnowledgeGraph:
         )
 
     # ----- Persons --------------------------------------------------------
-    def upsert_person(
-        self, person_id: str, name: str, primary_email: str | None
-    ) -> None:
+    def upsert_person(self, person_id: str, name: str, primary_email: str | None) -> None:
         existing = self._conn.execute(
             "MATCH (p:Person {id:$id}) RETURN count(p)", {"id": person_id}
         )
@@ -183,17 +182,13 @@ class KnowledgeGraph:
         )
 
     def add_alias(self, person_id: str, value: str, kind: str) -> None:
-        existing = self._conn.execute(
-            "MATCH (a:Alias {value:$v}) RETURN count(a)", {"v": value}
-        )
+        existing = self._conn.execute("MATCH (a:Alias {value:$v}) RETURN count(a)", {"v": value})
         if existing.get_next()[0] == 0:
-            self._conn.execute(
-                "CREATE (:Alias {value:$v, kind:$k})", {"v": value, "k": kind}
-            )
+            self._conn.execute("CREATE (:Alias {value:$v, kind:$k})", {"v": value, "k": kind})
         self._conn.execute(
             "MATCH (p:Person {id:$pid}), (a:Alias {value:$v}) "
             "CREATE (p)-[:HAS_ALIAS {ingested_at:$ts}]->(a)",
-            {"pid": person_id, "v": value, "ts": _ts(datetime.now(timezone.utc))},
+            {"pid": person_id, "v": value, "ts": _ts(datetime.now(UTC))},
         )
 
     def find_person_by_alias(self, value: str) -> str | None:
@@ -331,13 +326,15 @@ class KnowledgeGraph:
         out: list[dict] = []
         while r.has_next():
             row = r.get_next()
-            out.append({
-                "id": row[0],
-                "content": row[1],
-                "due_at": _from_ts(row[2]) if row[2] else None,
-                "status": row[3],
-                "owner_pid": row[4] or None,
-            })
+            out.append(
+                {
+                    "id": row[0],
+                    "content": row[1],
+                    "due_at": _from_ts(row[2]) if row[2] else None,
+                    "status": row[3],
+                    "owner_pid": row[4] or None,
+                }
+            )
         return out
 
     # ----- Queries --------------------------------------------------------
@@ -379,9 +376,7 @@ class KnowledgeGraph:
             )
         return out
 
-    def events_at(
-        self, start: datetime, end: datetime, *, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def events_at(self, start: datetime, end: datetime, *, limit: int = 50) -> list[dict[str, Any]]:
         r = self._conn.execute(
             "MATCH (m:MemoryNode) "
             "WHERE m.valid_from >= $s AND m.valid_from <= $e "
@@ -402,9 +397,7 @@ class KnowledgeGraph:
             )
         return out
 
-    def find_path(
-        self, person_a: str, person_b: str, *, max_hops: int = 4
-    ) -> list[str]:
+    def find_path(self, person_a: str, person_b: str, *, max_hops: int = 4) -> list[str]:
         # Path via shared memories (m1 mentions A and B both)
         r = self._conn.execute(
             "MATCH (m:MemoryNode)-[:MENTIONS]->(a:Person {id:$a}), "
@@ -427,9 +420,7 @@ class KnowledgeGraph:
         out: list[dict] = []
         while r.has_next():
             row = r.get_next()
-            out.append(
-                {"memory_id": row[0], "content": row[1], "weight": row[2]}
-            )
+            out.append({"memory_id": row[0], "content": row[1], "weight": row[2]})
         return out
 
     # ----- Cascading delete (GDPR) ---------------------------------------
@@ -452,10 +443,6 @@ class KnowledgeGraph:
         while memories_only_from_this.has_next():
             ids.append(memories_only_from_this.get_next()[0])
         for mid in ids:
-            self._conn.execute(
-                "MATCH (m:MemoryNode {id:$id}) DETACH DELETE m", {"id": mid}
-            )
-        self._conn.execute(
-            "MATCH (c:Capture {id:$cid}) DETACH DELETE c", {"cid": capture_id}
-        )
+            self._conn.execute("MATCH (m:MemoryNode {id:$id}) DETACH DELETE m", {"id": mid})
+        self._conn.execute("MATCH (c:Capture {id:$cid}) DETACH DELETE c", {"cid": capture_id})
         return len(ids)

@@ -18,6 +18,7 @@ YAML format:
     deny_app_only:
       - 'app_pattern'
 """
+
 from __future__ import annotations
 
 import re
@@ -88,15 +89,11 @@ class DenyList:
     deny_bundle_id: list[re.Pattern[str]] = field(default_factory=list)
 
     @classmethod
-    def from_defaults(cls) -> "DenyList":
+    def from_defaults(cls) -> DenyList:
         return cls(
             deny=[re.compile(p, re.IGNORECASE) for p in DEFAULT_DENY],
-            deny_app_only=[
-                re.compile(p, re.IGNORECASE) for p in DEFAULT_DENY_APP_ONLY
-            ],
-            deny_bundle_id=[
-                re.compile(p, re.IGNORECASE) for p in DEFAULT_DENY_BUNDLE_ID
-            ],
+            deny_app_only=[re.compile(p, re.IGNORECASE) for p in DEFAULT_DENY_APP_ONLY],
+            deny_bundle_id=[re.compile(p, re.IGNORECASE) for p in DEFAULT_DENY_BUNDLE_ID],
         )
 
     @classmethod
@@ -105,7 +102,7 @@ class DenyList:
         path: Path | str,
         *,
         merge_defaults: bool = True,
-    ) -> "DenyList":
+    ) -> DenyList:
         """Load from YAML; merges over defaults unless `merge_defaults=False`."""
         data = yaml.safe_load(Path(path).read_text()) or {}
         deny = list(data.get("deny", []))

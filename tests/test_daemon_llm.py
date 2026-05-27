@@ -9,12 +9,13 @@ Skipped when Ollama isn't reachable. Otherwise:
 This is the test that turns "we wired actants" into "we used actants in the
 daemon's actual hot path."
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -28,9 +29,7 @@ from secondbrain.memory.importance import heuristic_importance
 
 def _ollama_up() -> bool:
     try:
-        with urllib.request.urlopen(
-            "http://localhost:11434/api/tags", timeout=2
-        ) as r:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=2) as r:
             return r.status == 200
     except Exception:
         return False
@@ -61,7 +60,7 @@ def _frames() -> list[Frame]:
     for i, (app, text) in enumerate(payloads):
         out.append(
             Frame(
-                captured_at=datetime(2026, 5, 6, 12, i, tzinfo=timezone.utc),
+                captured_at=datetime(2026, 5, 6, 12, i, tzinfo=UTC),
                 image=img(i),
                 app_name=app,
                 app_bundle_id=f"com.example.{app.lower()}",
@@ -79,7 +78,7 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
     cfg = DaemonConfig(
         db_path=db,
         use_encryption=False,
-        use_stub_embedder=True,        # keep embed cheap; the LLM is what we're testing
+        use_stub_embedder=True,  # keep embed cheap; the LLM is what we're testing
         enable_llm=True,
         llm_model=_CHAT_MODEL,
     )
@@ -88,9 +87,7 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
 
     # 4 captures persisted, KG has at least 1 MemoryNode.
     assert daemon._memory is not None
-    r = daemon._memory.kg._conn.execute(
-        "MATCH (m:MemoryNode) RETURN m.id, m.content, m.importance"
-    )
+    r = daemon._memory.kg._conn.execute("MATCH (m:MemoryNode) RETURN m.id, m.content, m.importance")
     rows = []
     while r.has_next():
         rows.append(r.get_next())

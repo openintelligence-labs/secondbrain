@@ -5,6 +5,7 @@ Pass criteria:
 - Insert 100 multi-vec docs
 - MaxSim-style query returns ranked results
 """
+
 from __future__ import annotations
 
 import shutil
@@ -16,10 +17,9 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _runner import record  # noqa: E402
-
 import lancedb  # noqa: E402
 import pyarrow as pa  # noqa: E402
+from _runner import record  # noqa: E402
 
 
 def main() -> None:
@@ -75,11 +75,7 @@ def main() -> None:
         scores.sort(key=lambda x: x[1], reverse=True)
         query_ms = (time.perf_counter() - t0) * 1000
 
-        passed = (
-            len(ids) == 100
-            and len(scores) == 100
-            and scores[0][1] > scores[-1][1]
-        )
+        passed = len(ids) == 100 and len(scores) == 100 and scores[0][1] > scores[-1][1]
         record(
             "S0-02",
             passed,

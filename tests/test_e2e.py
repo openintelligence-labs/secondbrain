@@ -4,24 +4,22 @@ Drives the entire shipping stack against synthetic frames containing real
 text, then exercises:
    capture → cascade → embed → KG → search → who → MCP forget → cascade
 """
+
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from secondbrain.api.mcp_server import call, make_default_context
+from secondbrain.api.mcp_server import call
 from secondbrain.capture.frame import Frame, SyntheticFrameSource
 from secondbrain.daemon import Daemon, DaemonConfig
-from secondbrain.embed.stub import StubEmbedder
 from secondbrain.search.hybrid import HybridSearcher
 from secondbrain.store.captures import recent
 from secondbrain.store.oltp import open_unencrypted
-from secondbrain.store.text_index import TextIndex
-from secondbrain.store.vector import VectorStore
 
 
 def _frames() -> list[Frame]:
@@ -41,7 +39,7 @@ def _frames() -> list[Frame]:
     for i, (app, text) in enumerate(payloads):
         out.append(
             Frame(
-                captured_at=datetime(2026, 5, 5, 12, i, tzinfo=timezone.utc),
+                captured_at=datetime(2026, 5, 5, 12, i, tzinfo=UTC),
                 image=img(i),
                 app_name=app,
                 app_bundle_id=f"com.example.{app.lower()}",
@@ -79,9 +77,7 @@ def test_full_e2e_capture_search_who_forget(tmp_path: Path):
     # 3. KG knows about Sam Reed.
     assert daemon._memory is not None
     kg = daemon._memory.kg
-    r = kg._conn.execute(
-        "MATCH (p:Person {name:'Sam Reed'}) RETURN p.id"
-    )
+    r = kg._conn.execute("MATCH (p:Person {name:'Sam Reed'}) RETURN p.id")
     assert r.has_next()
     sam_id = r.get_next()[0]
 
@@ -96,9 +92,7 @@ def test_full_e2e_capture_search_who_forget(tmp_path: Path):
         oltp=conn,
     )
     mcp_search = call(ctx, "memory.search", {"query": "Snowflake migration", "limit": 3})
-    assert any(
-        "snowflake" in (h.get("snippet") or "").lower() for h in mcp_search["hits"]
-    )
+    assert any("snowflake" in (h.get("snippet") or "").lower() for h in mcp_search["hits"])
 
     # 5. memory.get_person returns the Person card.
     person_card = call(ctx, "memory.get_person", {"name": "Sam Reed"})
@@ -111,7 +105,5 @@ def test_full_e2e_capture_search_who_forget(tmp_path: Path):
     assert "deleted" in out
 
     # The audit log records this attempt.
-    audit_rows = conn.execute(
-        "SELECT action FROM audit_log WHERE action='forget'"
-    ).fetchall()
+    audit_rows = conn.execute("SELECT action FROM audit_log WHERE action='forget'").fetchall()
     assert len(audit_rows) >= 1

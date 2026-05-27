@@ -7,6 +7,7 @@ graft onto the same surface.
 JSONL schema:
     {"query": "...", "expected": ["capture_id_1", "capture_id_2"]}
 """
+
 from __future__ import annotations
 
 import json
@@ -66,7 +67,11 @@ def run(
         return ReplayResult(0, 0.0, 0.0, 0.0, [])
     timings_sorted = sorted(timings)
     p50 = statistics.median(timings_sorted)
-    p95 = timings_sorted[int(0.95 * len(timings_sorted))] if len(timings_sorted) > 1 else timings_sorted[0]
+    p95 = (
+        timings_sorted[int(0.95 * len(timings_sorted))]
+        if len(timings_sorted) > 1
+        else timings_sorted[0]
+    )
     return ReplayResult(
         n=len(cases),
         recall_at_k=hits / len(cases),

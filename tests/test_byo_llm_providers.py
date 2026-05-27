@@ -11,6 +11,7 @@ Each provider may need an upstream SDK (openai, anthropic, etc.) — install
 the matching SecondBrain extra: `pip install secondbrain[byo-llm]`. Tests
 that need the SDK are skipped when the SDK isn't importable.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,7 +19,6 @@ import importlib.util
 import pytest
 
 from secondbrain.llm_config import LLMConfig, apply_to_actants_env
-
 
 _PROVIDERS = [
     # (provider_name, expected_class_name, required_sdk_module)
@@ -57,6 +57,7 @@ def test_provider_class_loads(monkeypatch, provider, expected_cls, sdk):
     apply_to_actants_env(cfg)
 
     from actants import LLM
+
     llm = LLM()
     assert type(llm.provider).__name__ == expected_cls
     # The provider's `name` attribute should round-trip the user's choice.
@@ -67,5 +68,6 @@ def test_unknown_provider_fails_clearly(monkeypatch):
     monkeypatch.setenv("ACTANTS_PROVIDER", "definitely-not-a-real-provider")
     monkeypatch.setenv("ACTANTS_API_KEY", "sk-fake")
     from actants import LLM
+
     with pytest.raises(ValueError, match="Unknown provider"):
         LLM()

@@ -4,6 +4,7 @@ Rewind shipped as a SQLite-backed app; their published export format is JSON
 per session. Same shape as the others — we accept either JSONL or a single
 JSON document with a `sessions` field.
 """
+
 from __future__ import annotations
 
 import json

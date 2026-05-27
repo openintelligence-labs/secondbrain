@@ -9,12 +9,12 @@ Recording permission. CI runs on macOS GHA runners with permission denied;
 expect the test to be SKIPPED there. Locally it should pass once you accept
 the TCC prompt.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import sys
-from pathlib import Path
 
 import pytest
 

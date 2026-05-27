@@ -4,6 +4,7 @@ We assert the *shape* of each check (status + actionable fix string) rather
 than the result, because the result depends on the host. The gate function
 must still classify correctly given synthetic Check lists.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,18 +36,22 @@ def test_stores_writable_passes_on_fresh_tmp(tmp_path: Path) -> None:
 
 def test_gate_blocks_only_on_load_bearing_fails() -> None:
     # ollama failures are NOT blockers — heuristic fallback covers them.
-    ok, blockers = gate([
-        Check("ollama.reachable", "fail", "down", "ollama serve"),
-        Check("disk.free", "ok", "100GiB", None),
-    ])
+    ok, blockers = gate(
+        [
+            Check("ollama.reachable", "fail", "down", "ollama serve"),
+            Check("disk.free", "ok", "100GiB", None),
+        ]
+    )
     assert ok is True
     assert blockers == []
 
     # disk full IS a blocker.
-    ok, blockers = gate([
-        Check("disk.free", "fail", "0.1 GiB free", "free space"),
-        Check("ollama.reachable", "ok", "up", None),
-    ])
+    ok, blockers = gate(
+        [
+            Check("disk.free", "fail", "0.1 GiB free", "free space"),
+            Check("ollama.reachable", "ok", "up", None),
+        ]
+    )
     assert ok is False
     assert len(blockers) == 1
     assert blockers[0].name == "disk.free"

@@ -2,9 +2,10 @@
 
 Tests use aiohttp's TestClient so no real socket is opened.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -41,7 +42,7 @@ def _seed(tmp_path: Path) -> MCPContext:
     oltp = open_unencrypted(db)
     cap = Capture(
         id="ui-test-1",
-        captured_at=datetime(2026, 5, 12, 12, 0, tzinfo=timezone.utc),
+        captured_at=datetime(2026, 5, 12, 12, 0, tzinfo=UTC),
         app_name="Slack",
         app_bundle_id="com.slack",
         ax_text="Sam Reed will ship the Snowflake migration by Friday.",
@@ -99,8 +100,10 @@ async def test_commitments(client):
     body = await r.json()
     assert "commitments" in body
     # Sam's first-person promise should appear.
-    assert any("send" in c["content"].lower() or "ship" in c["content"].lower()
-               for c in body["commitments"])
+    assert any(
+        "send" in c["content"].lower() or "ship" in c["content"].lower()
+        for c in body["commitments"]
+    )
 
 
 async def test_status(client):

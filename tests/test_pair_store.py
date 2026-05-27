@@ -1,10 +1,10 @@
 """Pair-store: identity persistence + PSK roundtrip via Keychain (mocked)."""
+
 from __future__ import annotations
 
 import os
 import stat
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -68,6 +68,7 @@ def test_complete_pairing_roundtrip(isolated_paths: Path):
     # The other device, running the same DH against b's pubkey, must derive
     # the same PSK.
     from secondbrain.sync.pairing import derive_shared_key
+
     psk_from_a = derive_shared_key(a.private_key, b.public_key_bytes)
     assert psk_from_a == psk
 

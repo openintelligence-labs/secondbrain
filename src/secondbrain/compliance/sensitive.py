@@ -9,10 +9,11 @@ existing window-title deny-list output: any frame whose pre-cascade
 deny-list match was triggered is flagged sensitive. The heavy VLMs plug in
 behind `set_classifier()` later.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Protocol
 
 from PIL import Image
 
@@ -33,9 +34,7 @@ class HeuristicClassifier:
 
     def classify(self, image: Image.Image, *, hint: str = "") -> SensitiveDecision:
         if hint:
-            return SensitiveDecision(
-                is_sensitive=True, reason=f"hint:{hint}", confidence=0.95
-            )
+            return SensitiveDecision(is_sensitive=True, reason=f"hint:{hint}", confidence=0.95)
         return SensitiveDecision(is_sensitive=False, reason="default", confidence=0.5)
 
 

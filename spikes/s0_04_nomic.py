@@ -7,6 +7,7 @@ Pass criteria:
   than dense; 20/sec is plenty for SecondBrain's continuous-but-not-realtime
   embedding pipeline)
 """
+
 from __future__ import annotations
 
 import sys
@@ -17,7 +18,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _runner import record  # noqa: E402
-
 from sentence_transformers import SentenceTransformer  # noqa: E402
 
 MODEL = "nomic-ai/nomic-embed-text-v2-moe"
@@ -35,8 +35,7 @@ def main() -> None:
     load_s = time.perf_counter() - t0
 
     texts = [
-        f"This is sample text number {i} about meetings, retrieval, and memory."
-        for i in range(N)
+        f"This is sample text number {i} about meetings, retrieval, and memory." for i in range(N)
     ]
 
     # Warmup

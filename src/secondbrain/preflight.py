@@ -14,19 +14,18 @@ Checks (all named so /metrics scrapers can correlate):
   disk.free          — > 1 GiB free under ~/.secondbrain
   stores.writable    — each store dir is creatable + writable
 """
+
 from __future__ import annotations
 
 import json
 import os
 import shutil
-import socket
 import subprocess
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-
 
 Status = Literal["ok", "warn", "fail", "skip"]
 
@@ -79,16 +78,14 @@ def _check_sck_tcc(timeout_s: float = 4.0) -> Check:
         return Check("sck.tcc", "skip", "non-macOS host")
     try:
         from secondbrain.capture.macos_sck import _default_sidecar_path
+
         sidecar = _default_sidecar_path()
     except FileNotFoundError:
         return Check("sck.tcc", "skip", "sidecar not built — see sck.sidecar")
 
     try:
         proc = subprocess.Popen(
-            [str(sidecar),
-             "--fps", "1",
-             "--max-frames", "1",
-             "--emit-png"],
+            [str(sidecar), "--fps", "1", "--max-frames", "1", "--emit-png"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -102,7 +99,10 @@ def _check_sck_tcc(timeout_s: float = 4.0) -> Check:
                 "sck.tcc",
                 "fail",
                 "no NDJSON emitted within timeout",
-                fix="System Settings → Privacy & Security → Screen Recording → enable Terminal (or your runner)",
+                fix=(
+                    "System Settings → Privacy & Security → Screen Recording "
+                    "→ enable Terminal (or your runner)"
+                ),
             )
         # Sidecar emits NDJSON. First line is usually a "ready" header,
         # subsequent lines are frames. Scan for the first frame-shaped record.
@@ -118,27 +118,34 @@ def _check_sck_tcc(timeout_s: float = 4.0) -> Check:
                 continue
             if t == "error":
                 return Check(
-                    "sck.tcc", "fail",
+                    "sck.tcc",
+                    "fail",
                     f"sidecar error: {data.get('msg', '?')}",
-                    fix="rebuild the sidecar with: cd swift/SecondBrainCapture && swift build -c release",
+                    fix=(
+                        "rebuild the sidecar with: "
+                        "cd swift/SecondBrainCapture && swift build -c release"
+                    ),
                 )
             if "image_b64" in data or "image_path" in data or "png" in data:
                 return Check("sck.tcc", "ok", "captured 1 frame")
         # We got NDJSON but no frame — typically TCC denied.
         if saw_ready:
             return Check(
-                "sck.tcc", "fail",
+                "sck.tcc",
+                "fail",
                 "sidecar started but emitted no frames (TCC likely denied)",
                 fix="System Settings → Privacy & Security → Screen Recording → enable Terminal",
             )
         return Check(
-            "sck.tcc", "fail",
+            "sck.tcc",
+            "fail",
             "sidecar emitted only non-frame messages",
             fix="rebuild the sidecar; check version matches Python client",
         )
     except Exception as e:
-        return Check("sck.tcc", "fail", repr(e),
-                     fix="rerun with SECONDBRAIN_DEBUG=1 to see sidecar stderr")
+        return Check(
+            "sck.tcc", "fail", repr(e), fix="rerun with SECONDBRAIN_DEBUG=1 to see sidecar stderr"
+        )
 
 
 def _check_ollama_reachable() -> Check:
@@ -150,17 +157,19 @@ def _check_ollama_reachable() -> Check:
             body = json.loads(r.read())
             models = body.get("models", [])
             return Check(
-                "ollama.reachable", "ok",
+                "ollama.reachable",
+                "ok",
                 f"{base} · {len(models)} model(s)",
             )
     except urllib.error.URLError as e:
         return Check(
-            "ollama.reachable", "fail", f"{base} unreachable ({e.reason})",
+            "ollama.reachable",
+            "fail",
+            f"{base} unreachable ({e.reason})",
             fix="brew install ollama && ollama serve  (or set OLLAMA_HOST)",
         )
     except Exception as e:
-        return Check("ollama.reachable", "fail", repr(e),
-                     fix="brew install ollama && ollama serve")
+        return Check("ollama.reachable", "fail", repr(e), fix="brew install ollama && ollama serve")
 
 
 def _check_ollama_model(want_model: str | None = None) -> Check:
@@ -176,12 +185,15 @@ def _check_ollama_model(want_model: str | None = None) -> Check:
 
     if not models:
         return Check(
-            "ollama.model", "fail", "no models pulled",
+            "ollama.model",
+            "fail",
+            "no models pulled",
             fix="ollama pull llama3.1  (or any model you prefer)",
         )
     if want_model and not any(want_model in m for m in models):
         return Check(
-            "ollama.model", "warn",
+            "ollama.model",
+            "warn",
             f"want={want_model} not pulled; available={', '.join(models[:4])}",
             fix=f"ollama pull {want_model}",
         )
@@ -195,7 +207,8 @@ def _check_embedder_model() -> Check:
     cache = Path.home() / ".cache" / "huggingface" / "hub"
     if not cache.exists():
         return Check(
-            "embedder.model", "warn",
+            "embedder.model",
+            "warn",
             "HF cache empty — first launch will download Nomic v2 (~500MB)",
             fix="run a small `secondbrain index` once to seed the cache",
         )
@@ -203,7 +216,8 @@ def _check_embedder_model() -> Check:
     nomic = list(cache.glob("models--nomic-ai--*"))
     if not nomic:
         return Check(
-            "embedder.model", "warn",
+            "embedder.model",
+            "warn",
             f"HF cache present but no Nomic snapshot ({len(list(cache.iterdir()))} other models)",
             fix="first `secondbrain ui` launch will trigger the download",
         )
@@ -223,21 +237,35 @@ def _check_keychain() -> Check:
         got = keyring.get_password(probe_service, "preflight")
         keyring.delete_password(probe_service, "preflight")
         if got != probe_value:
-            return Check("keychain.access", "fail",
-                         "round-trip mismatch", fix="check Keychain Access permissions")
+            return Check(
+                "keychain.access",
+                "fail",
+                "round-trip mismatch",
+                fix="check Keychain Access permissions",
+            )
         return Check("keychain.access", "ok", "round-trip succeeded")
     except Exception as e:
-        return Check("keychain.access", "fail", repr(e),
-                     fix="unlock the login keychain in Keychain Access.app")
+        return Check(
+            "keychain.access",
+            "fail",
+            repr(e),
+            fix="unlock the login keychain in Keychain Access.app",
+        )
 
 
 def _check_disk_free(db_path: Path) -> Check:
     try:
-        st = shutil.disk_usage(str(db_path.parent if db_path.parent.exists() else db_path.parent.parent))
+        st = shutil.disk_usage(
+            str(db_path.parent if db_path.parent.exists() else db_path.parent.parent)
+        )
         free_gib = st.free / (1024**3)
         if free_gib < 1.0:
-            return Check("disk.free", "fail", f"{free_gib:.2f} GiB free",
-                         fix="free space under your home directory")
+            return Check(
+                "disk.free",
+                "fail",
+                f"{free_gib:.2f} GiB free",
+                fix="free space under your home directory",
+            )
         if free_gib < 5.0:
             return Check("disk.free", "warn", f"{free_gib:.2f} GiB free")
         return Check("disk.free", "ok", f"{free_gib:.1f} GiB free")
@@ -255,8 +283,9 @@ def _check_stores_writable(db_path: Path) -> Check:
         probe.unlink()
         return Check("stores.writable", "ok", str(db_path.parent))
     except Exception as e:
-        return Check("stores.writable", "fail", repr(e),
-                     fix=f"chmod the directory: {db_path.parent}")
+        return Check(
+            "stores.writable", "fail", repr(e), fix=f"chmod the directory: {db_path.parent}"
+        )
 
 
 def run_preflight(db_path: Path, *, probe_tcc: bool = True) -> list[Check]:
@@ -281,6 +310,10 @@ def gate(checks: list[Check]) -> tuple[bool, list[Check]]:
     failing is *not* a blocker — first launch downloads on demand. Same
     for `ollama.*` warnings — heuristic fallbacks cover them.
     """
-    blockers = [c for c in checks if c.status == "fail"
-                and c.name not in {"embedder.model", "ollama.model", "ollama.reachable"}]
+    blockers = [
+        c
+        for c in checks
+        if c.status == "fail"
+        and c.name not in {"embedder.model", "ollama.model", "ollama.reachable"}
+    ]
     return (len(blockers) == 0, blockers)

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from secondbrain.embed.stub import StubEmbedder
-from secondbrain.eval.replay import load_cases, run as run_replay
+from secondbrain.eval.replay import load_cases
+from secondbrain.eval.replay import run as run_replay
 from secondbrain.indexing import Indexer
 from secondbrain.models import Capture
 from secondbrain.search.hybrid import HybridSearcher
@@ -16,7 +17,7 @@ from secondbrain.store.vector import VectorStore
 def _cap(cid: str, text: str) -> Capture:
     return Capture(
         id=cid,
-        captured_at=datetime.now(timezone.utc),
+        captured_at=datetime.now(UTC),
         app_name="Test",
         ax_text=text,
     )

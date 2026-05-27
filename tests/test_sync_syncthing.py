@@ -7,6 +7,7 @@ Syncthing would converge to in steady state) and asserts:
   - pull is idempotent — calling twice returns nothing the second time
   - a foreign-keyed blob is silently skipped, not crashed on
 """
+
 from __future__ import annotations
 
 import os

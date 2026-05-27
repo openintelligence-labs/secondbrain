@@ -1,4 +1,5 @@
 """Schema migration + integrity check tests for store/oltp.py."""
+
 from __future__ import annotations
 
 import sqlite3
