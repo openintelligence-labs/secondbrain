@@ -93,8 +93,15 @@ class TextEmbedder:
             return self._model
         with self._load_lock:
             if self._model is None:
-                from sentence_transformers import SentenceTransformer
-
+                try:
+                    from sentence_transformers import SentenceTransformer
+                except ModuleNotFoundError as e:
+                    raise ModuleNotFoundError(
+                        "Local text embeddings require the [ml] extra. "
+                        "Install with: pip install -e '.[ml]' "
+                        "(or use --stub-embedder for tests/demos, or set "
+                        "SECONDBRAIN_LLM_EMBEDDINGS=ollama to use Ollama)."
+                    ) from e
                 self._model = SentenceTransformer(
                     self.cfg.model,
                     device=self.cfg.device,

@@ -42,6 +42,22 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
 
+# Local text embeddings + cross-encoder reranker. Without this, `secondbrain
+# index` and `secondbrain search --rerank` fall back to actants/Ollama-served
+# embeddings (or the stub embedder for tests/demos).
+ml = [
+    "sentence-transformers>=3.0",
+    "torch>=2.2",
+]
+
+# Visual recall via ColQwen2.5 late-interaction. Heavy — ~2 GB of model
+# weights on first use. Only needed for `secondbrain run --visual`.
+visual = [
+    "sentence-transformers>=3.0",
+    "torch>=2.2",
+    "colpali-engine>=0.3",
+]
+
 # BYO-LLM extras — install when pointing SECONDBRAIN_LLM_PROVIDER at a hosted
 # provider. Each extra pulls actants's matching extra, which in turn installs
 # the upstream SDK (openai, anthropic, etc.) and registers the provider class.
