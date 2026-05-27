@@ -61,8 +61,15 @@ class VisualEmbedder:
         with self._lock:
             if self._model is not None:
                 return
-            import torch
-            from colpali_engine.models import ColQwen2_5, ColQwen2_5_Processor
+            try:
+                import torch
+                from colpali_engine.models import ColQwen2_5, ColQwen2_5_Processor
+            except ModuleNotFoundError as e:
+                raise ModuleNotFoundError(
+                    "Visual recall (ColQwen2.5) requires the [visual] extra. "
+                    "Install with: pip install -e '.[visual]' "
+                    "(this is ~2 GB; only needed for `secondbrain run --visual`)."
+                ) from e
 
             self._device = self._resolve_device()
             dtype = getattr(torch, self.cfg.dtype, torch.float16)

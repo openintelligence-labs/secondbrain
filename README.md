@@ -32,9 +32,11 @@ Modern knowledge work generates more context than any human can hold — meeting
 
 ```bash
 git clone https://github.com/openintelligence-labs/secondbrain && cd secondbrain
-python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev,ml]'
 .venv/bin/secondbrain run --fps 1                 # start the capture daemon
 ```
+
+The `[ml]` extra installs the local text embedder (sentence-transformers + PyTorch). Skip it if you plan to use Ollama-served embeddings or the `--stub-embedder` flag — local embeddings pull ~2 GB of model weights on first use. For visual recall via ColQwen2.5 add `[visual]`; for BYO hosted LLMs add `[byo-llm]`.
 
 For the full desktop app (Tauri shell + Swift sidecars), build the two extra components after the Python install:
 
