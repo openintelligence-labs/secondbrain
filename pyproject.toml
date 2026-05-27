@@ -26,6 +26,7 @@ dependencies = [
     "pillow>=10.0",
     "pyarrow>=15.0",
     "pydantic>=2.6",
+    "scikit-image>=0.22",
     "PyYAML>=6.0",
     "sqlcipher3-wheels>=0.5",
     "structlog>=24.1",
