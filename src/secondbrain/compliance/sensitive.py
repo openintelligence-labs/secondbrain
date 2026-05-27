@@ -1,41 +1,88 @@
-"""Sensitive-content classifier (skeleton).
+"""Sensitive-content classifier interface.
 
-Architecture's two-stage filter:
-   1. Florence-2-base classifier (~80ms binary) — is this frame sensitive?
-   2. Moondream-3 — generate a redaction mask when stage 1 is positive.
+Two-stage filter:
+   1. Florence-2-base classifier (~150ms p95) — does the frame show
+      sensitive content (password field, OTP, card, SSN, medical)?
+   2. (deferred) Moondream-3 mask generation when stage 1 is positive.
 
-Today we ship the *interface* and a heuristic baseline that uses our
-existing window-title deny-list output: any frame whose pre-cascade
-deny-list match was triggered is flagged sensitive. The heavy VLMs plug in
-behind `set_classifier()` later.
+Today this module ships the Protocol and a heuristic baseline. The
+Florence-backed implementation lands behind the `[redact]` extra in a
+follow-up PR and plugs in via `set_classifier()`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 from PIL import Image
+from pydantic import BaseModel, Field
+
+SensitiveCategory = Literal[
+    "password_field",
+    "otp_code",
+    "card_number",
+    "ssn",
+    "medical_record",
+    "unknown",
+]
 
 
-@dataclass
-class SensitiveDecision:
+class SensitiveDecision(BaseModel):
     is_sensitive: bool
-    reason: str
-    confidence: float = 1.0
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    categories: list[SensitiveCategory] = Field(default_factory=list)
+    model: str = "heuristic"
+    latency_ms: int | None = None
+
+    @property
+    def reason(self) -> str:
+        """Human-readable summary derived from categories.
+
+        Kept as a property so existing call sites that did
+        `decision.reason` keep working.
+        """
+        if not self.is_sensitive:
+            return "clean"
+        return ",".join(self.categories) if self.categories else "unknown"
 
 
 class SensitiveClassifier(Protocol):
-    def classify(self, image: Image.Image, *, hint: str = "") -> SensitiveDecision: ...
+    def classify(
+        self,
+        image: Image.Image,
+        *,
+        hint: str = "",
+        timeout_ms: int = 250,
+    ) -> SensitiveDecision: ...
 
 
 class HeuristicClassifier:
-    """No-VLM baseline — returns is_sensitive=True only when caller passes a hint."""
+    """No-VLM baseline. Flags sensitive only when a hint is supplied.
 
-    def classify(self, image: Image.Image, *, hint: str = "") -> SensitiveDecision:
+    Used as the default before `[redact]` is installed and as the test
+    double in the cascade gate tests.
+    """
+
+    def classify(
+        self,
+        image: Image.Image,
+        *,
+        hint: str = "",
+        timeout_ms: int = 250,
+    ) -> SensitiveDecision:
         if hint:
-            return SensitiveDecision(is_sensitive=True, reason=f"hint:{hint}", confidence=0.95)
-        return SensitiveDecision(is_sensitive=False, reason="default", confidence=0.5)
+            return SensitiveDecision(
+                is_sensitive=True,
+                confidence=0.95,
+                categories=["unknown"],
+                model="heuristic",
+            )
+        return SensitiveDecision(
+            is_sensitive=False,
+            confidence=0.5,
+            categories=[],
+            model="heuristic",
+        )
 
 
 _classifier: SensitiveClassifier = HeuristicClassifier()
@@ -46,5 +93,14 @@ def set_classifier(c: SensitiveClassifier) -> None:
     _classifier = c
 
 
-def classify(image: Image.Image, hint: str = "") -> SensitiveDecision:
-    return _classifier.classify(image, hint=hint)
+def get_classifier() -> SensitiveClassifier:
+    """Return the currently registered classifier instance."""
+    return _classifier
+
+
+def classify(
+    image: Image.Image,
+    hint: str = "",
+    timeout_ms: int = 250,
+) -> SensitiveDecision:
+    return _classifier.classify(image, hint=hint, timeout_ms=timeout_ms)

@@ -203,6 +203,18 @@ def status(db: Path, no_encryption: bool) -> None:
 @click.option(
     "--llm-embeddings", is_flag=True, help="Also route embeddings through actants (Ollama)"
 )
+@click.option(
+    "--redact",
+    is_flag=True,
+    help="Enable sensitive-content redaction gate (heuristic baseline; "
+    "Florence-backed model lands behind the [redact] extra in v0.3)",
+)
+@click.option(
+    "--redact-threshold",
+    type=float,
+    default=0.6,
+    help="Confidence threshold above which a frame is redacted (default 0.6)",
+)
 def run(
     db: Path,
     fps: int,
@@ -216,6 +228,8 @@ def run(
     llm: bool,
     llm_model: str | None,
     llm_embeddings: bool,
+    redact: bool,
+    redact_threshold: float,
 ) -> None:
     """Run the macOS capture daemon for real (ScreenCaptureKit + cascade + encrypted DB)."""
     from secondbrain.capture.macos_sck import MacOSScreenSource
@@ -236,6 +250,8 @@ def run(
         enable_llm=llm,
         llm_model=llm_model,
         llm_embeddings=llm_embeddings,
+        enable_redact=redact,
+        redact_threshold=redact_threshold,
     )
     daemon = Daemon(cfg)
 
