@@ -934,6 +934,18 @@ def restore(archive_path: Path, db: Path, force: bool) -> None:
     "--llm", is_flag=True, help="Route importance + commitments through actants LLM (Ollama)"
 )
 @click.option("--llm-model", default=None, help="Override the actants LLM model")
+@click.option(
+    "--redact",
+    is_flag=True,
+    help="Enable sensitive-content redaction gate (heuristic baseline; "
+    "Florence-backed model lands behind the [redact] extra in v0.3)",
+)
+@click.option(
+    "--redact-threshold",
+    type=float,
+    default=0.6,
+    help="Confidence threshold above which a frame is redacted (default 0.6)",
+)
 def run_synthetic(
     db: Path,
     frames: int,
@@ -941,6 +953,8 @@ def run_synthetic(
     stub_embedder: bool,
     llm: bool,
     llm_model: str | None,
+    redact: bool,
+    redact_threshold: float,
 ) -> None:
     """Drive the cascade with synthetic frames — useful for smoke-testing without a display."""
     import numpy as np
@@ -977,6 +991,8 @@ def run_synthetic(
         use_stub_embedder=stub_embedder,
         enable_llm=llm,
         llm_model=llm_model,
+        enable_redact=redact,
+        redact_threshold=redact_threshold,
     )
     daemon = Daemon(cfg)
 
