@@ -142,9 +142,7 @@ class Daemon:
             # pick its env-driven default.
             model = self.cfg.llm_model or llm_cfg.model
 
-            timeout_kw = (
-                {"timeout_s": self.cfg.llm_timeout_s} if self.cfg.llm_timeout_s else {}
-            )
+            timeout_kw = {"timeout_s": self.cfg.llm_timeout_s} if self.cfg.llm_timeout_s else {}
             use_actants_scorer(model=model, **timeout_kw)
             use_actants_extractor(model=model, **timeout_kw)
             use_actants_synthesizer(model=model, **timeout_kw)

@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.16,<0.17"]
 
 # Local text embeddings + cross-encoder reranker. Without this, `secondbrain
 # index` and `secondbrain search --rerank` fall back to actants/Ollama-served

@@ -48,19 +48,20 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 SensitiveCategory = Literal[
-    "password_field",   # visible password input or autofill prompt
-    "otp_code",         # 4-8 digit code clearly labeled OTP/2FA/verification
-    "card_number",      # 13-19 digit card-shaped number visible
-    "ssn",              # 9-digit US-format SSN visible (XXX-XX-XXXX)
-    "medical_record",   # diagnosis / prescription / patient ID visible
-    "unknown",          # model said sensitive but couldn't pick a category
+    "password_field",  # visible password input or autofill prompt
+    "otp_code",  # 4-8 digit code clearly labeled OTP/2FA/verification
+    "card_number",  # 13-19 digit card-shaped number visible
+    "ssn",  # 9-digit US-format SSN visible (XXX-XX-XXXX)
+    "medical_record",  # diagnosis / prescription / patient ID visible
+    "unknown",  # model said sensitive but couldn't pick a category
 ]
+
 
 class SensitiveDecision(BaseModel):
     is_sensitive: bool
     confidence: float = Field(ge=0.0, le=1.0)
     categories: list[SensitiveCategory] = Field(default_factory=list)
-    model: str = "heuristic"      # "florence-2-base" | "heuristic" | "deny-list"
+    model: str = "heuristic"  # "florence-2-base" | "heuristic" | "deny-list"
     latency_ms: int | None = None  # wall-clock inference time
 
     # Reason is retained for backward compatibility with the existing Protocol
@@ -76,14 +77,14 @@ A *redacted stub* — the row that lands in the OLTP store when a frame is redac
 
 ```python
 Capture(
-    id=...,                          # normal capture ID — keeps audit-log linkage
-    captured_at=...,                 # original frame timestamp
-    app_name=...,                    # preserved (it's the deny-list/AX-tree value)
-    app_bundle_id=...,               # preserved
-    window_title="<redacted>",       # NEVER the original title
-    ax_text=None,                    # AX text discarded
-    image_b64=None,                  # pixel data discarded
-    gate="redacted",                 # new gate name in the existing Literal
+    id=...,  # normal capture ID — keeps audit-log linkage
+    captured_at=...,  # original frame timestamp
+    app_name=...,  # preserved (it's the deny-list/AX-tree value)
+    app_bundle_id=...,  # preserved
+    window_title="<redacted>",  # NEVER the original title
+    ax_text=None,  # AX text discarded
+    image_b64=None,  # pixel data discarded
+    gate="redacted",  # new gate name in the existing Literal
     meta={
         "redaction": {
             "categories": [...],
@@ -111,8 +112,8 @@ class SensitiveClassifier(Protocol):
         self,
         image: Image.Image,
         *,
-        hint: str = "",          # window title or app name — context only
-        timeout_ms: int = 250,    # wall-clock cap; classifier should respect
+        hint: str = "",  # window title or app name — context only
+        timeout_ms: int = 250,  # wall-clock cap; classifier should respect
     ) -> SensitiveDecision: ...
 ```
 
@@ -241,14 +242,14 @@ Every redaction (and every error that triggers fail-closed) writes an entry thro
 audit.record(
     event="redaction",
     payload={
-        "capture_id": "01HZ...",          # the capture ID we discarded
+        "capture_id": "01HZ...",  # the capture ID we discarded
         "captured_at": "2026-05-27T...",  # original frame timestamp
         "app_bundle_id": "com.apple.Safari",
         "categories": ["password_field"],
         "confidence": 0.94,
         "model": "florence-2-base",
         "latency_ms": 142,
-        "threshold": 0.6,                 # what the user had it set to
+        "threshold": 0.6,  # what the user had it set to
     },
 )
 ```

@@ -261,59 +261,65 @@ class Capture(BaseModel):
     window_title: str | None
     url: str | None
     file_path: Path | None
-    ax_text: str | None                 # accessibility tree text (preferred path)
-    ocr_text: str | None                # only if ax_text is None
+    ax_text: str | None  # accessibility tree text (preferred path)
+    ocr_text: str | None  # only if ax_text is None
     text_hash: bytes
-    pixel_hash: bytes | None            # dHash, only if frame stored
-    pixel_path: Path | None             # encrypted HEVC frame (age)
+    pixel_hash: bytes | None  # dHash, only if frame stored
+    pixel_path: Path | None  # encrypted HEVC frame (age)
     sensitive: bool = False
     redacted: bool = False
     monitor_index: int | None
-    capability_cache_hit: bool          # did AX cache hit? (avoids re-probe)
+    capability_cache_hit: bool  # did AX cache hit? (avoids re-probe)
+
 
 class MemoryNode(BaseModel):
     """MaRS-typed memory primitive."""
+
     id: ULID
     type: Literal["episodic", "semantic", "procedural", "commitment"]
     content: str
-    embedding: bytes                    # Nomic v2 768-dim float32 (Matryoshka 128 for hot index)
-    importance: float                   # 0–10, Gemma-3 scored
-    valid_from: datetime                # bi-temporal: event time
-    valid_to: datetime | None           # bi-temporal: when fact stopped being true
-    ingested_at: datetime               # bi-temporal: when we learned it
-    superseded_by: ULID | None          # KG-style fact succession
-    sources: list[ULID]                 # provenance → Capture.id (cascading delete)
+    embedding: bytes  # Nomic v2 768-dim float32 (Matryoshka 128 for hot index)
+    importance: float  # 0–10, Gemma-3 scored
+    valid_from: datetime  # bi-temporal: event time
+    valid_to: datetime | None  # bi-temporal: when fact stopped being true
+    ingested_at: datetime  # bi-temporal: when we learned it
+    superseded_by: ULID | None  # KG-style fact succession
+    sources: list[ULID]  # provenance → Capture.id (cascading delete)
     tags: list[str]
-    linked_to: list[ULID]               # A-MEM Zettelkasten links (bidirectional)
-    decay_factor: float                 # FadeMem half-life modifier
+    linked_to: list[ULID]  # A-MEM Zettelkasten links (bidirectional)
+    decay_factor: float  # FadeMem half-life modifier
+
 
 class Commitment(MemoryNode):
     """First-class commitment node — nobody else ships this typed."""
+
     type: Literal["commitment"] = "commitment"
-    owner: ULID                         # FK → Person.id
-    promised_to: ULID | None            # FK → Person.id
+    owner: ULID  # FK → Person.id
+    promised_to: ULID | None  # FK → Person.id
     due_at: datetime | None
     status: Literal["open", "in_progress", "done", "cancelled", "broken"]
-    closed_in: ULID | None              # which capture/event closed it
+    closed_in: ULID | None  # which capture/event closed it
+
 
 class Person(BaseModel):
     id: ULID
     name: str
-    aliases: list[str]                  # email, handles, calendar names
-    voiceprint: bytes | None            # 192-dim ECAPA (shared with MeetMind)
-    face_embedding: bytes | None        # for cross-app entity resolution
+    aliases: list[str]  # email, handles, calendar names
+    voiceprint: bytes | None  # 192-dim ECAPA (shared with MeetMind)
+    face_embedding: bytes | None  # for cross-app entity resolution
     last_interaction: datetime
     interaction_count: int
+
 
 class Reflection(BaseModel):
     id: ULID
     period: Literal["day", "week", "month", "year"]
     period_start: date
     themes: list[str]
-    broken_promises: list[ULID]         # → Commitment.id (status='broken')
+    broken_promises: list[ULID]  # → Commitment.id (status='broken')
     suggested_followups: list[str]
     importance_sum: float
-    cited_evidence: list[ULID]          # RMM: every claim cites Capture.id
+    cited_evidence: list[ULID]  # RMM: every claim cites Capture.id
 ```
 
 ---
