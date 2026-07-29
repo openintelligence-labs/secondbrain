@@ -37,10 +37,10 @@ _PRECONDITION = pytest.mark.skipif(
 )
 
 
-# Default chat model: gpt-oss:20b-cloud is small, structured-output-capable,
-# and reachable via the same Ollama endpoint. Override with the env var to
-# point at any local Ollama-served chat model.
-_CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gpt-oss:20b-cloud")
+# Default chat model: a fully local Ollama model so the default test suite
+# never egresses. Override with SECONDBRAIN_TEST_CHAT_MODEL to point at any
+# other Ollama-served model (including cloud models) when explicitly wanted.
+_CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gemma4:latest")
 _EMBED_MODEL = os.environ.get("SECONDBRAIN_TEST_EMBED_MODEL", "nomic-embed-text")
 
 

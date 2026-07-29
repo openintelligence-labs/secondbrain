@@ -66,6 +66,12 @@ class DaemonConfig:
     # Optional model override for the actants LLM path (importance + commitment
     # extraction). None → actants picks its default model.
     llm_model: str | None = None
+    # Optional per-call timeout override (seconds) for the three LLM swap-ins.
+    # None keeps each swap-in's own default (5s scorer / 8s extractor / 30s
+    # synthesizer) — sized for warm hosted or warm local models. Raise it when
+    # running a slower local model so calls don't silently fall back to the
+    # heuristics.
+    llm_timeout_s: float | None = None
     # When True, embeddings also route through actants (default `nomic-embed-text`
     # via Ollama). False keeps the local sentence-transformers Nomic v2 path.
     llm_embeddings: bool = False
@@ -136,9 +142,12 @@ class Daemon:
             # pick its env-driven default.
             model = self.cfg.llm_model or llm_cfg.model
 
-            use_actants_scorer(model=model)
-            use_actants_extractor(model=model)
-            use_actants_synthesizer(model=model)
+            timeout_kw = (
+                {"timeout_s": self.cfg.llm_timeout_s} if self.cfg.llm_timeout_s else {}
+            )
+            use_actants_scorer(model=model, **timeout_kw)
+            use_actants_extractor(model=model, **timeout_kw)
+            use_actants_synthesizer(model=model, **timeout_kw)
             log.info(
                 "daemon.llm_enabled",
                 model=model or "(actants env default)",

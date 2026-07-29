@@ -40,7 +40,30 @@ _PRECONDITION = pytest.mark.skipif(
     reason="Ollama not reachable on localhost:11434",
 )
 
-_CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gpt-oss:20b-cloud")
+# Default to a fully local model so the default test suite never egresses.
+# Override with SECONDBRAIN_TEST_CHAT_MODEL (e.g. an Ollama cloud model) when
+# you explicitly want to test against a hosted model.
+_CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gemma4:latest")
+
+
+def _warm_model(model: str) -> None:
+    """Load the model into Ollama's memory before the daemon starts.
+
+    The daemon's per-call LLM timeouts (5s scorer / 8s extractor) are sized for
+    warm inference. A cold local model pays several seconds of load on the
+    first call, times out, and silently falls back to the heuristic — which is
+    exactly the bypass this test exists to catch. Warm it so the timeouts
+    measure inference, not model load.
+    """
+    import json
+
+    req = urllib.request.Request(
+        "http://localhost:11434/api/generate",
+        data=json.dumps({"model": model, "prompt": "ok", "stream": False}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=180) as r:
+        r.read()
 
 
 def _frames() -> list[Frame]:
@@ -74,6 +97,7 @@ def _frames() -> list[Frame]:
 
 @_PRECONDITION
 def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
+    _warm_model(_CHAT_MODEL)
     db = tmp_path / "secondbrain.db"
     cfg = DaemonConfig(
         db_path=db,
@@ -81,6 +105,10 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
         use_stub_embedder=True,  # keep embed cheap; the LLM is what we're testing
         enable_llm=True,
         llm_model=_CHAT_MODEL,
+        # Local models are slower than the daemon's warm-hosted default
+        # timeouts; a timeout here silently falls back to the heuristic, which
+        # is the exact bypass this test exists to catch.
+        llm_timeout_s=45.0,
     )
     daemon = Daemon(cfg)
     asyncio.run(daemon.run(SyntheticFrameSource(_frames())))
