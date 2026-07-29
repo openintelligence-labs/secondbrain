@@ -57,6 +57,5 @@ eval/bench_results.json
 
 .github/workflows/*.exists
 
-CHANGELOG.md
 
 assets/

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "secondbrain"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-first personal memory daemon for macOS — captures, indexes, and exposes your screen-time history to MCP-aware AI assistants."
 readme = "README.md"
 license = { text = "MIT" }

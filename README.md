@@ -5,7 +5,7 @@
 **Your personal AI memory. On your device. On your terms.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](https://github.com/openintelligence-labs/secondbrain/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-informational.svg)](https://github.com/openintelligence-labs/secondbrain/releases)
 [![CI](https://github.com/openintelligence-labs/secondbrain/actions/workflows/ci.yml/badge.svg)](https://github.com/openintelligence-labs/secondbrain/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org)
 [![Powered by actants](https://img.shields.io/badge/powered%20by-actants-7c3aed.svg)](https://github.com/openintelligence-labs/actants)
