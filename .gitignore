@@ -1,5 +1,5 @@
 
-docs/
+docs/internal/
 .claude/
 CLAUDE.md
 __pycache__/
