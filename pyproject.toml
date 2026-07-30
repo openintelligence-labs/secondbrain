@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "secondbrain"
-version = "0.3.0"
+name = "secondbrain-ai"
+version = "0.3.1"
 description = "Local-first personal memory daemon for macOS — captures, indexes, and exposes your screen-time history to MCP-aware AI assistants."
 readme = "README.md"
 license = { text = "MIT" }

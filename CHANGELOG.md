@@ -5,6 +5,16 @@ All notable changes to SecondBrain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-07-29
+
+### Changed
+- Published to PyPI as **`secondbrain-ai`** (the name `secondbrain` on PyPI belongs to an
+  unrelated package). Install with `pip install secondbrain-ai`; the CLI command and
+  import name remain `secondbrain`.
+- Default LLM test model is now local (`gemma4:latest`) so the suite never egresses;
+  daemon gained a configurable `llm_timeout_s`.
+- Pinned `mcp<2` (mcp 2.0 removed `mcp.server.fastmcp`).
+
 ## [0.3.0] - 2026-07-29
 
 ### Added
