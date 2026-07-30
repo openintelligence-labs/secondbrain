@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-CaptureSource = Literal["screen", "audio", "browser", "document", "clipboard", "wearable"]
+CaptureSource = Literal["screen", "audio", "browser", "document", "clipboard", "wearable", "note"]
 
 
 class Capture(BaseModel):

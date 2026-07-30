@@ -24,11 +24,7 @@ class Indexer:
 
     def index_capture(self, capture: Capture) -> int:
         """Index a single capture's text. Returns # chunks indexed."""
-        body = capture.ax_text or capture.ocr_text
-        if not body:
-            return 0
-
-        chunks = chunks_for(capture.id, body)
+        chunks = self._chunks(capture)
         if not chunks:
             return 0
 
@@ -55,3 +51,31 @@ class Indexer:
         self.vector.add_chunks(rows)
         self.text.commit()
         return len(chunks)
+
+    def index_capture_keyword_only(self, capture: Capture) -> int:
+        """BM25-only fallback: index into tantivy without embedding.
+
+        For callers whose embedder is unavailable at write time (e.g. the
+        gateway before the model is cached, or Ollama down). The capture must
+        already be persisted to OLTP so the next `secondbrain index` bulk
+        pass backfills the vector side through the normal embed path.
+        """
+        chunks = self._chunks(capture)
+        if not chunks:
+            return 0
+
+        for c in chunks:
+            self.text.add(
+                chunk_uid=f"{c.capture_id}:{c.chunk_index}",
+                capture_id=c.capture_id,
+                chunk_index=c.chunk_index,
+                body=c.text,
+            )
+        self.text.commit()
+        return len(chunks)
+
+    def _chunks(self, capture: Capture):
+        body = capture.ax_text or capture.ocr_text
+        if not body:
+            return []
+        return chunks_for(capture.id, body)

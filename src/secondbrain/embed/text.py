@@ -56,6 +56,36 @@ class TextEmbedderConfig:
     actants_model: str = ACTANTS_DEFAULT_MODEL
 
 
+def _run_coro_blocking(coro):
+    """Run a coroutine from sync code, event-loop-safe.
+
+    `asyncio.run` raises RuntimeError when a loop is already running on this
+    thread (the gateway's aiohttp handlers and the daemon's consume loop both
+    call the sync embed surface). In that case, run the coroutine on a private
+    thread's fresh loop and block until it finishes.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    result: list = []
+    error: list[BaseException] = []
+
+    def _target() -> None:
+        try:
+            result.append(asyncio.run(coro))
+        except BaseException as e:  # noqa: BLE001 — re-raised on the caller thread
+            error.append(e)
+
+    t = threading.Thread(target=_target, name="sb-embed-sync-bridge")
+    t.start()
+    t.join()
+    if error:
+        raise error[0]
+    return result[0]
+
+
 def _l2_normalize(arr: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(arr, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
@@ -131,7 +161,7 @@ class TextEmbedder:
 
         if self.cfg.backend == "actants":
             embeddings = self._ensure_actants()
-            result = asyncio.run(embeddings.embed(list(texts)))
+            result = _run_coro_blocking(embeddings.embed(list(texts)))
             arr = np.asarray(result.vectors, dtype=np.float32)
             if self.cfg.normalize:
                 arr = _l2_normalize(arr)
@@ -152,7 +182,7 @@ class TextEmbedder:
         """Embed a single query string. Returns float32 (dim,) ndarray."""
         if self.cfg.backend == "actants":
             embeddings = self._ensure_actants()
-            vec = asyncio.run(embeddings.embed_one(text))
+            vec = _run_coro_blocking(embeddings.embed_one(text))
             arr = np.asarray(vec, dtype=np.float32)
             if self.cfg.normalize:
                 n = float(np.linalg.norm(arr)) or 1.0

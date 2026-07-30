@@ -5,6 +5,23 @@ All notable changes to SecondBrain are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-07-30
+
+### Fixed
+- Notes added via `memory.add_note` (MCP tool or the gateway's `/add-note`) are now
+  indexed into LanceDB + tantivy through the same capture → chunk → embed → index
+  path the daemon uses, so `/search` hybrid retrieval finds them. Notes get an OLTP
+  capture row, a KG `Capture` node with `DERIVED_FROM` provenance (so
+  `memory.forget --capture-id` cascades), and an audit entry. When the embedder is
+  unavailable, notes degrade to BM25-only indexing and the next `secondbrain index`
+  bulk pass backfills the vector side. Closes
+  [#7](https://github.com/openintelligence-labs/secondbrain/issues/7).
+- The actants (Ollama) embedding backend no longer crashes when its sync surface
+  (`TextEmbedder.embed_passages` / `embed_query`) is called from a running event
+  loop — e.g. the gateway's async handlers or the daemon's consume loop. Found by
+  the live end-to-end check for #7; embedding now bridges to a private thread's
+  loop instead of calling `asyncio.run` on a busy thread.
+
 ## [0.3.1] - 2026-07-29
 
 ### Changed

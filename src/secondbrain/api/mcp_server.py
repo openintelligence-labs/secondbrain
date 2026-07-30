@@ -106,7 +106,7 @@ TOOL_DEFS: list[ToolDef] = [
     ),
     ToolDef(
         name="memory.add_note",
-        description="Inject an explicit user note into the memory graph.",
+        description="Inject an explicit user note into memory (searchable via memory.search).",
         schema={
             "type": "object",
             "properties": {
@@ -264,15 +264,70 @@ def t_daily_digest(ctx: MCPContext, **args) -> dict[str, Any]:
 
 
 def t_add_note(ctx: MCPContext, **args) -> dict[str, Any]:
+    """Explicit user note → the same capture → chunk → embed → index path the
+    daemon uses, so hybrid search (LanceDB ⊕ tantivy → RRF) can find it.
+
+    A note is a first-class memory: it gets an OLTP capture row (so
+    `secondbrain index` bulk re-index includes it), chunk entries in both
+    retrieval indexes, a KG Capture node + MemoryNode + DERIVED_FROM edge
+    (so `memory.forget --capture-id` cascades), and an audit entry.
+
+    If the embedder is unavailable (model not cached, Ollama down) we degrade
+    to BM25-only indexing so the note is still findable immediately; the next
+    bulk re-index backfills the vector side from the OLTP row.
+    """
+    from secondbrain.indexing import Indexer
+    from secondbrain.models import Capture
+    from secondbrain.store.captures import insert as insert_capture
+
     text = args["text"]
-    tags = args.get("tags", [])
+    tags = list(args.get("tags", []))
     nid = uuid4().hex
+    cap_id = uuid4().hex
     now = datetime.now(UTC)
+
+    capture = Capture(
+        id=cap_id,
+        source="note",
+        captured_at=now,
+        app_name="note",
+        ax_text=text,
+        meta={"tags": ", ".join(tags)} if tags else {},
+    )
+    insert_capture(ctx.oltp, capture)
+
+    indexer = Indexer(embedder=ctx.embedder, vector=ctx.vector, text=ctx.text)
+    vector_indexed = True
+    try:
+        n_chunks = indexer.index_capture(capture)
+    except Exception:
+        # Heuristic-baseline convention: a missing/flaky embedder must never
+        # block ingestion. Keyword index now; vectors on the next bulk index.
+        n_chunks = indexer.index_capture_keyword_only(capture)
+        vector_indexed = False
+
+    ctx.kg.upsert_capture(cap_id, "note", now, "note", None)
     ctx.kg.upsert_memory(
         nid, "semantic", text, valid_from=now, valid_to=None, ingested_at=now, importance=5.0
     )
-    ctx.audit.record("add_note", actor="mcp", cited=[nid], detail={"tags": tags})
-    return {"memory_id": nid}
+    ctx.kg.link_memory_to_capture(nid, cap_id, now)
+    ctx.audit.record(
+        "add_note",
+        actor="mcp",
+        cited=[nid],
+        detail={
+            "tags": tags,
+            "capture_id": cap_id,
+            "chunks_indexed": n_chunks,
+            "vector_indexed": vector_indexed,
+        },
+    )
+    return {
+        "memory_id": nid,
+        "capture_id": cap_id,
+        "chunks_indexed": n_chunks,
+        "vector_indexed": vector_indexed,
+    }
 
 
 def t_forget(ctx: MCPContext, **args) -> dict[str, Any]:

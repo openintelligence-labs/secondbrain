@@ -147,6 +147,26 @@ async def test_add_note(client):
     assert "memory_id" in body
 
 
+async def test_add_note_is_hybrid_searchable(client):
+    """Regression for #7 — notes must land in the LanceDB + tantivy indexes,
+    not just the KG, so /search RRF-ranked hybrid retrieval finds them."""
+    note = "I will send the v0.3.0 release notes to the team by Friday."
+    r = await client.post("/add-note", json={"text": note})
+    assert r.status == 200
+    added = await r.json()
+    assert added["chunks_indexed"] >= 1
+    assert added["vector_indexed"] is True
+
+    r = await client.post("/search", json={"query": "send v0.3.0 release notes team"})
+    assert r.status == 200
+    body = await r.json()
+    hits = body["hits"]
+    assert any(h["capture_id"] == added["capture_id"] for h in hits), (
+        f"note capture {added['capture_id']} missing from hybrid hits: {hits}"
+    )
+    assert any("release notes" in (h.get("snippet") or "") for h in hits)
+
+
 async def test_audit_log(client):
     # The seed already triggered audit rows via ingestion; even if not,
     # the endpoint should return a structured empty list rather than 500.
