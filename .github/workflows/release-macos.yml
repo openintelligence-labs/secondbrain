@@ -1,0 +1,118 @@
+name: Release (macOS DMG)
+
+# NOTE: dispatch-only until the Apple signing secrets below are configured —
+# on tag push this job would fail without them. PyPI publishing lives in release.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release as (e.g. v0.3.0)'
+        required: true
+        type: string
+
+jobs:
+  macos-build:
+    # Universal macOS build → signed → notarized → DMG attached to release.
+    # Required repo secrets:
+    #   APPLE_CERTIFICATE          base64-encoded .p12 export of the Developer ID Application cert
+    #   APPLE_CERTIFICATE_PASSWORD password for the .p12
+    #   APPLE_SIGNING_IDENTITY     e.g. "Developer ID Application: Your Name (TEAMID)"
+    #   APPLE_TEAM_ID              the 10-char team id (e.g. "ABCDE12345")
+    #   APPLE_API_KEY              base64 .p8 from App Store Connect
+    #   APPLE_API_KEY_ID           the key id
+    #   APPLE_API_ISSUER           the issuer id
+    #   KEYCHAIN_PASSWORD          any random string (we create a one-off keychain)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Swift sidecar
+        run: |
+          cd swift/SecondBrainCapture
+          swift build -c release
+
+      - name: Build Python wheel
+        run: |
+          pip install build
+          python -m build --wheel
+
+      - name: npm install
+        working-directory: app
+        run: npm install
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::warning::APPLE_CERTIFICATE not set — building unsigned"
+            exit 0
+          fi
+          # Create a temporary keychain for this run so we don't pollute the
+          # runner's default keychain.
+          KEYCHAIN_PATH=$RUNNER_TEMP/sb-build.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          echo "$APPLE_CERTIFICATE" | base64 -d > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Build & sign Tauri app
+        working-directory: app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm run build
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            export APPLE_SIGNING_IDENTITY
+          fi
+          npx tauri build --target universal-apple-darwin
+
+      - name: Notarize DMG
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          DMG=$(find app/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name '*.dmg' | head -1)
+          if [ -z "$DMG" ]; then
+            echo "::error::no DMG produced"
+            exit 1
+          fi
+          if [ -z "$APPLE_API_KEY" ]; then
+            echo "::warning::APPLE_API_KEY missing — skipping notarization"
+            echo "DMG_PATH=$DMG" >> $GITHUB_ENV
+            exit 0
+          fi
+          echo "$APPLE_API_KEY" | base64 -d > $RUNNER_TEMP/AuthKey.p8
+          xcrun notarytool submit "$DMG" \
+            --key $RUNNER_TEMP/AuthKey.p8 \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple "$DMG"
+          echo "DMG_PATH=$DMG" >> $GITHUB_ENV
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: |
+            ${{ env.DMG_PATH }}
+            dist/*.whl
+          generate_release_notes: true
