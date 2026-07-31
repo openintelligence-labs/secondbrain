@@ -1,13 +1,6 @@
-"""H-08 — daemon end-to-end with the LLM actually in the loop.
+"""Daemon end-to-end with the LLM in the loop. Skipped when Ollama is down.
 
-Skipped when Ollama isn't reachable. Otherwise:
-  - drives 4 synthetic captures through the daemon with `enable_llm=True`
-  - verifies that at least one resulting MemoryNode in Kùzu has an importance
-    score that doesn't match what the heuristic would have produced for the
-    same text — i.e. the LLM was actually consulted, not bypassed.
-
-This is the test that turns "we wired actants" into "we used actants in the
-daemon's actual hot path."
+Importance scores that all match the heuristic mean the LLM path was bypassed.
 """
 
 from __future__ import annotations
@@ -41,19 +34,16 @@ _PRECONDITION = pytest.mark.skipif(
 )
 
 # Default to a fully local model so the default test suite never egresses.
-# Override with SECONDBRAIN_TEST_CHAT_MODEL (e.g. an Ollama cloud model) when
-# you explicitly want to test against a hosted model.
+# Override with SECONDBRAIN_TEST_CHAT_MODEL to target a hosted model.
 _CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gemma4:latest")
 
 
 def _warm_model(model: str) -> None:
     """Load the model into Ollama's memory before the daemon starts.
 
-    The daemon's per-call LLM timeouts (5s scorer / 8s extractor) are sized for
-    warm inference. A cold local model pays several seconds of load on the
-    first call, times out, and silently falls back to the heuristic — which is
-    exactly the bypass this test exists to catch. Warm it so the timeouts
-    measure inference, not model load.
+    The daemon's per-call timeouts are sized for warm inference. A cold model
+    times out on the first call and silently falls back to the heuristic —
+    exactly the bypass this test exists to catch.
     """
     import json
 
@@ -102,18 +92,16 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
     cfg = DaemonConfig(
         db_path=db,
         use_encryption=False,
-        use_stub_embedder=True,  # keep embed cheap; the LLM is what we're testing
+        use_stub_embedder=True,  # keep embed cheap; the LLM is under test
         enable_llm=True,
         llm_model=_CHAT_MODEL,
-        # Local models are slower than the daemon's warm-hosted default
-        # timeouts; a timeout here silently falls back to the heuristic, which
-        # is the exact bypass this test exists to catch.
+        # Local models are slower than the daemon's warm-hosted defaults, and a
+        # timeout would silently fall back to the heuristic.
         llm_timeout_s=45.0,
     )
     daemon = Daemon(cfg)
     asyncio.run(daemon.run(SyntheticFrameSource(_frames())))
 
-    # 4 captures persisted, KG has at least 1 MemoryNode.
     assert daemon._memory is not None
     r = daemon._memory.kg._conn.execute("MATCH (m:MemoryNode) RETURN m.id, m.content, m.importance")
     rows = []
@@ -122,8 +110,6 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
 
     assert len(rows) >= 1, "no MemoryNodes were written by the daemon"
 
-    # At least one node's importance should differ from what the regex
-    # heuristic would have given. If every score matches, the LLM didn't run.
     diffs = []
     for _id, content, importance in rows:
         h = heuristic_importance(content)
@@ -136,6 +122,5 @@ def test_daemon_with_llm_writes_memorynodes(tmp_path: Path):
         f"Rows: {rows}"
     )
 
-    # And every importance should be in [0, 10].
     for _id, _content, importance in rows:
         assert 0.0 <= float(importance) <= 10.0

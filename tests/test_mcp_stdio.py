@@ -49,9 +49,9 @@ def _seed(tmp_path: Path) -> Path:
 
 def test_mcp_stdio_app_registers_seven_tools(tmp_path: Path):
     db = _seed(tmp_path)
-    # `_seed` returned without us holding any references to the TextIndex /
-    # IndexWriter; force collection so tantivy releases the writer-lock on
-    # the index dir before `build_app` opens it again.
+    # No references to the TextIndex / IndexWriter survive `_seed`; force
+    # collection so tantivy releases the writer-lock before `build_app`
+    # reopens the index dir.
     import gc
 
     gc.collect()

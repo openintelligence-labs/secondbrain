@@ -1,21 +1,8 @@
-"""MCP server.
+"""MCP tool implementations.
 
-Exposes 7 tools that turn SecondBrain into a memory substrate any MCP-aware
-client (Claude Desktop, Cursor, Codex, Windsurf, Gemini CLI) can attach to:
-
-    1. memory.search(query, time_range?, person?, source?)
-    2. memory.recall_timeline(start, end, granularity)
-    3. memory.get_person(name|id)
-    4. memory.commitments(status, due_before)
-    5. memory.daily_digest(date)
-    6. memory.add_note(text, tags)
-    7. memory.forget(entity_id|time_range, reason)        # the GDPR moat
-
-Implementation strategy: build the tools as plain functions that operate on
-the SecondBrain stack (KG, vector, text, OLTP, audit log). The MCP server
-adapter is a thin shell that maps tool names → these functions and validates
-the JSON schemas. That way the smoke test exercises the *tool bodies*
-without spinning up a live network transport.
+The 7 tools are plain functions over the SecondBrain stack (KG, vector, text,
+OLTP, audit log); the MCP server adapter is a thin name → function shell. This
+lets tests exercise the tool bodies without a live transport.
 """
 
 from __future__ import annotations
@@ -142,8 +129,7 @@ class MCPContext:
     text: TextIndex
     embedder: object
     oltp: sqlite3.Connection
-    # Path to the on-disk OLTP file. None for in-memory contexts.
-    # /health uses this to compute free-disk on the mount.
+    # None for in-memory contexts; /health uses it for free-disk on the mount.
     oltp_path: Path | None = None
     audit: AuditLog = field(init=False)
 
@@ -156,9 +142,6 @@ def _parse_dt(s: str) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt
-
-
-# ----- Tool implementations ------------------------------------------------
 
 
 def t_memory_search(ctx: MCPContext, **args) -> dict[str, Any]:
@@ -218,7 +201,6 @@ def t_commitments(ctx: MCPContext, **args) -> dict[str, Any]:
     if due_before:
         due_dt = _parse_dt(due_before)
     rows = ctx.kg.commitments(status=status, due_before=due_dt)
-    # Render due_at ISO for JSON serializability.
     serialized = []
     for row in rows:
         d = row.get("due_at")
@@ -264,17 +246,14 @@ def t_daily_digest(ctx: MCPContext, **args) -> dict[str, Any]:
 
 
 def t_add_note(ctx: MCPContext, **args) -> dict[str, Any]:
-    """Explicit user note → the same capture → chunk → embed → index path the
-    daemon uses, so hybrid search (LanceDB ⊕ tantivy → RRF) can find it.
+    """Persist a user note through the daemon's capture → chunk → embed → index path.
 
-    A note is a first-class memory: it gets an OLTP capture row (so
-    `secondbrain index` bulk re-index includes it), chunk entries in both
-    retrieval indexes, a KG Capture node + MemoryNode + DERIVED_FROM edge
-    (so `memory.forget --capture-id` cascades), and an audit entry.
+    The note becomes a first-class memory: an OLTP capture row, chunks in both
+    retrieval indexes, and a KG Capture + MemoryNode + DERIVED_FROM edge so
+    `memory.forget --capture-id` cascades over it.
 
-    If the embedder is unavailable (model not cached, Ollama down) we degrade
-    to BM25-only indexing so the note is still findable immediately; the next
-    bulk re-index backfills the vector side from the OLTP row.
+    An unavailable embedder degrades to BM25-only indexing so the note is
+    findable immediately; the next bulk re-index backfills the vector side.
     """
     from secondbrain.indexing import Indexer
     from secondbrain.models import Capture
@@ -301,8 +280,7 @@ def t_add_note(ctx: MCPContext, **args) -> dict[str, Any]:
     try:
         n_chunks = indexer.index_capture(capture)
     except Exception:
-        # Heuristic-baseline convention: a missing/flaky embedder must never
-        # block ingestion. Keyword index now; vectors on the next bulk index.
+        # A missing/flaky embedder must never block ingestion.
         n_chunks = indexer.index_capture_keyword_only(capture)
         vector_indexed = False
 

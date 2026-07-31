@@ -1,21 +1,8 @@
 """Importance scorer.
 
-Two implementations:
-
-  - `heuristic_importance` — regex+length baseline, sub-millisecond, no I/O.
-    The default. Used by every test and by every code path until you flip
-    over.
-
-  - `_ActantsScorer` — routes through `actants.LLM.extract` (Pydantic
-    structured output), asks an LLM (Ollama-default per actants config) to
-    rate the text 0..10. Costs one LLM call per scored event; ~100–500ms
-    on a local Phi-4-mini.
-
-Wire the LLM path with:
-
-    from secondbrain.memory.importance import use_actants_scorer
-    use_actants_scorer()                # uses default actants LLM
-    use_actants_scorer(model="phi4-mini")
+`heuristic_importance` is the default: a regex + length baseline with no I/O.
+`use_actants_scorer()` swaps in an LLM that rates text 0..10 via
+`actants.LLM.extract`, at one call per scored event.
 """
 
 from __future__ import annotations
@@ -51,9 +38,6 @@ def heuristic_importance(text: str) -> float:
     signal_score = min(n_signal * 1.5, 6.0)  # up to 6 points for content
     base = 1.0 if text.strip() else 0.0
     return round(min(base + length_score + signal_score, 10.0), 2)
-
-
-# ----- actants-backed LLM scorer -----------------------------------------
 
 
 class _ImportanceJudgement(BaseModel):

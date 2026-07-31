@@ -47,8 +47,8 @@ class VectorStore:
         self.db_path.mkdir(parents=True, exist_ok=True)
         self._db = lancedb.connect(str(self.db_path))
         listing = self._db.list_tables()
-        # LanceDB returns either a list[str] or a ListTablesResponse object;
-        # handle both shapes so we don't get pinned to a specific version.
+        # LanceDB returns either a list[str] or a ListTablesResponse depending
+        # on version; handle both shapes.
         names = getattr(listing, "tables", listing)
         existing = set(names)
         if self.table_name not in existing:

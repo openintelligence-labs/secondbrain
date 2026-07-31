@@ -1,11 +1,8 @@
 """Pre-flight checks for `secondbrain ui` and `secondbrain run`.
 
-Surfaces what the operator must fix before a production-mode launch will
-work. Each check returns a `Check` with a status and an actionable hint.
+Each check returns a `Check` with a status and an actionable hint:
 
-Checks (all named so /metrics scrapers can correlate):
-
-  sck.sidecar       — Swift binary present + executable
+  sck.sidecar        — Swift binary present + executable
   sck.tcc            — Screen Recording permission granted (probed)
   ollama.reachable   — `ollama serve` answering on localhost
   ollama.model       — at least one LLM model pulled
@@ -128,7 +125,7 @@ def _check_sck_tcc(timeout_s: float = 4.0) -> Check:
                 )
             if "image_b64" in data or "image_path" in data or "png" in data:
                 return Check("sck.tcc", "ok", "captured 1 frame")
-        # We got NDJSON but no frame — typically TCC denied.
+        # NDJSON but no frame — typically TCC denied.
         if saw_ready:
             return Check(
                 "sck.tcc",

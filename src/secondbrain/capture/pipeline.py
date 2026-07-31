@@ -1,12 +1,8 @@
 """The capture cascade — orchestrates gates and emits Capture rows.
 
-Order (cheapest first):
+Gates run cheapest-first:
 
     deny_list → ax_unchanged → dirty_rect → dHash → pHash → SSIM → persist
-
-This module owns no I/O concerns: it consumes `Frame` objects, emits `Capture`
-rows, and delegates persistence + capability tracking to its collaborators.
-That makes it trivially unit-testable.
 """
 
 from __future__ import annotations
@@ -70,32 +66,25 @@ class CapturePipeline:
     capability: CapabilityCache
     conn: sqlite3.Connection
     metrics: CascadeMetrics = field(default_factory=CascadeMetrics)
-    # Optional audit log. When present, redaction events are recorded with
-    # category + confidence + model metadata — no image bytes or original
-    # window title. The user can later prove "N frames were refused at T".
     audit: AuditLog | None = None
-    # Track previous AX digest per (bundle_id, app_name) to skip unchanged.
+    # Previous AX digest per (bundle_id, app_name), to skip unchanged frames.
     _prev_ax_digest: dict[tuple[str, str], bytes] = field(default_factory=dict)
 
     async def run(self, source: FrameSource) -> AsyncIterator[Capture | None]:
-        """Stream captures (None when a frame is gated). Caller decides what to
-        log — useful for the integration test."""
+        """Stream captures, yielding None when a frame is gated."""
         async for frame in source.stream():
             yield self._process(frame)
 
     def process_one(self, frame: Frame) -> Capture | None:
-        """Synchronous entry point used by tests."""
+        """Synchronous entry point."""
         return self._process(frame)
 
     def _process(self, frame: Frame) -> Capture | None:
         self.metrics.seen += 1
         if self.metrics.paused:
-            # When paused, count seen frames but skip every gate beyond this
-            # — gives users an instant kill-switch from the UI/tray.
             self.metrics.hit("paused")
             return None
 
-        # Gate 1 — window-title deny-list (0 ms)
         denied, _reason = self.deny.decide(
             frame.app_name,
             frame.window_title,
@@ -105,7 +94,6 @@ class CapturePipeline:
             self.metrics.hit("deny_list")
             return None
 
-        # Gate 2 — AX-tree unchanged
         ax_key = (frame.app_bundle_id or "", frame.app_name or "")
         if frame.ax_text_digest is not None:
             prev = self._prev_ax_digest.get(ax_key)
@@ -114,12 +102,8 @@ class CapturePipeline:
                 return None
             self._prev_ax_digest[ax_key] = frame.ax_text_digest
 
-        # Gates 3-7 — dirty-rect / dHash / pHash / SSIM / redact
-        # The hint passes window-title + app-name context to the optional
-        # sensitive-content classifier so it can use it as a prompt prior.
-        # No PII leaks: the hint never enters the persisted store or the
-        # audit log unless the user explicitly opted in to that behavior
-        # (and today no path does).
+        # The hint gives the optional sensitive-content classifier a prompt
+        # prior. It must never reach the persisted store or the audit log.
         hint_parts = [p for p in (frame.app_name, frame.window_title) if p]
         decision: Decision = self.cascade.evaluate(
             frame.image,
@@ -132,8 +116,6 @@ class CapturePipeline:
                 self._record_redaction(frame, decision)
             return None
 
-        # Track per-app AX capability based on whether the source produced
-        # ax_text for this frame.
         if frame.app_bundle_id and frame.app_name:
             self.capability.record(
                 frame.app_bundle_id,
@@ -162,22 +144,17 @@ class CapturePipeline:
         self.metrics.hit("persist")
         if frame.ax_text:
             self.metrics.ax_text_present += 1
-        # Stash the PIL image so downstream visual-embed can fetch it without
-        # mutating the Pydantic model. Cleared by the consumer after use.
         _IMAGE_FOR_VISUAL[capture.id] = frame.image
         return capture
 
     def _record_redaction(self, frame: Frame, decision: Decision) -> None:
         """Persist a redaction event to the audit log.
 
-        Payload is intentionally minimal: app + bundle + classifier metadata
-        and the timestamp. No image bytes, no original window title, no AX
-        text. The user can later prove "between T1 and T2 we refused N
-        frames with category X" without anything sensitive leaving the
-        classifier's process.
+        The payload is deliberately minimal — app, bundle, classifier metadata,
+        timestamp. No image bytes, no window title, no AX text.
         """
         redaction = decision.redaction
-        assert redaction is not None  # mypy belt-and-braces; the gate guarantees this
+        assert redaction is not None  # guaranteed by the gate
         self.audit.record(  # type: ignore[union-attr]
             action="capture.redacted",
             actor="daemon",
@@ -193,8 +170,8 @@ class CapturePipeline:
         )
 
 
-# Tiny sidecar map — capture_id → PIL.Image for the visual-embed path.
-# Daemon pops entries after encoding; entries here are never persisted.
+# Sidecar map (capture_id → PIL.Image) for the visual-embed path, keeping
+# images off the Pydantic model. The daemon pops entries after encoding.
 _IMAGE_FOR_VISUAL: dict[str, object] = {}
 
 
@@ -203,7 +180,7 @@ def take_image_for_visual(capture_id: str):
 
 
 def started_at(_frame: Frame | None = None) -> datetime:
-    """Tiny indirection so tests can monkey-patch time if they need to."""
+    """Indirection point so tests can monkey-patch the clock."""
     from secondbrain.capture.frame import now
 
     return now()

@@ -33,8 +33,7 @@ def build_app(
     ctx: MCPContext = make_default_context(db=db, use_stub_embedder=use_stub_embedder)
     mcp = FastMCP("secondbrain")
 
-    # The architecture's 7 tools. We register them dynamically so the schema
-    # in `mcp_server.TOOL_DEFS` stays the source of truth.
+    # Registered dynamically so `mcp_server.TOOL_DEFS` stays the source of truth.
     for tdef in list_tools():
         # Closure over `tdef.name` — late binding bites otherwise.
         tool_name = tdef.name

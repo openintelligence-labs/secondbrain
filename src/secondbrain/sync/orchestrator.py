@@ -155,9 +155,8 @@ def pull(*, kg: KnowledgeGraph, backend: SyncBackend) -> PullResult:
                 )
                 applied += 1
             else:
-                # We only synchronize memory_node in v1.0. Other kinds (person,
-                # commitment, kg_edge) will land in v1.1 when we extend the
-                # backend's payload schema.
+                # Only memory_node syncs today; person / commitment / kg_edge
+                # need an extended backend payload schema first.
                 rejected += 1
         except Exception as e:
             log.warning("sync.pull_apply_failed", kind=kind, err=repr(e))

@@ -15,9 +15,8 @@ Edges (all bi-temporal: valid_from / valid_to / ingested_at on the rel):
     LINKED_TO      MemoryNode -> MemoryNode         (A-MEM Zettelkasten)
     HAS_ALIAS      Person -> Alias
 
-Bi-temporal query pattern: every relation carries `valid_from` and `valid_to`,
-so we can answer "what did the system know about X as of <date>?" via Cypher
-filters on those bounds — validated by the initial spike at p50 0.41ms.
+Every relation carries `valid_from` / `valid_to`, so "what did the system know
+about X as of <date>?" is a Cypher filter on those bounds.
 """
 
 from __future__ import annotations
@@ -30,7 +29,6 @@ from typing import Any
 import kuzu
 
 SCHEMA_DDL: list[str] = [
-    # Nodes ----------------------------------------------------------------
     """CREATE NODE TABLE IF NOT EXISTS Capture(
         id STRING PRIMARY KEY,
         source STRING,
@@ -68,7 +66,6 @@ SCHEMA_DDL: list[str] = [
         valid_to TIMESTAMP,
         ingested_at TIMESTAMP
     )""",
-    # Edges ---------------------------------------------------------------
     """CREATE REL TABLE IF NOT EXISTS DERIVED_FROM(
         FROM MemoryNode TO Capture,
         ingested_at TIMESTAMP
@@ -110,26 +107,23 @@ def _from_ts(dt: datetime | None) -> datetime | None:
 
 @dataclass
 class KnowledgeGraph:
-    """Wrapper around Kùzu giving us a tiny, opinionated API."""
+    """Opinionated wrapper around a Kùzu database."""
 
     db_path: Path
     _db: kuzu.Database = field(init=False)
     _conn: kuzu.Connection = field(init=False)
 
     def __post_init__(self) -> None:
-        # Kùzu wants a *file* (it manages its own directory underneath); accept
-        # either a directory (we add `kg.db` inside) or a file path.
+        # Kùzu wants a file path; a directory gets `kg.db` appended.
         if self.db_path.suffix == "":
             self.db_path.mkdir(parents=True, exist_ok=True)
             db_file = self.db_path / "kg.db"
         else:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             db_file = self.db_path
-        # Kùzu's default `max_db_size` is 8 TB — a single virtual mmap that
-        # works fine in isolation but exhausts virtual address space when a
-        # test suite opens dozens of databases in one process. Cap to 16 GiB
-        # (or env override) for production-realistic limits while keeping
-        # parallel-test friendliness.
+        # Kùzu's default `max_db_size` is 8 TB — one virtual mmap, which
+        # exhausts virtual address space when a test suite opens dozens of
+        # databases in one process. Do not remove this cap.
         import os
 
         max_gib = int(os.environ.get("SECONDBRAIN_KUZU_MAX_DB_GIB", "16"))
@@ -141,7 +135,6 @@ class KnowledgeGraph:
         for ddl in SCHEMA_DDL:
             self._conn.execute(ddl)
 
-    # ----- Captures -------------------------------------------------------
     def upsert_capture(
         self,
         capture_id: str,
@@ -150,7 +143,6 @@ class KnowledgeGraph:
         app_name: str | None,
         app_bundle_id: str | None,
     ) -> None:
-        # MERGE-style: skip if already present.
         existing = self._conn.execute(
             "MATCH (c:Capture {id:$id}) RETURN count(c)",
             {"id": capture_id},
@@ -169,7 +161,6 @@ class KnowledgeGraph:
             },
         )
 
-    # ----- Persons --------------------------------------------------------
     def upsert_person(self, person_id: str, name: str, primary_email: str | None) -> None:
         existing = self._conn.execute(
             "MATCH (p:Person {id:$id}) RETURN count(p)", {"id": person_id}
@@ -200,7 +191,6 @@ class KnowledgeGraph:
             return r.get_next()[0]
         return None
 
-    # ----- MemoryNodes ----------------------------------------------------
     def upsert_memory(
         self,
         node_id: str,
@@ -272,7 +262,6 @@ class KnowledgeGraph:
             {"s": src_id, "d": dst_id, "w": float(weight), "ts": _ts(ingested_at)},
         )
 
-    # ----- Commitments ----------------------------------------------------
     def upsert_commitment(
         self,
         commitment_id: str,
@@ -337,7 +326,6 @@ class KnowledgeGraph:
             )
         return out
 
-    # ----- Queries --------------------------------------------------------
     def facts_about(
         self,
         person_id: str,
@@ -398,7 +386,7 @@ class KnowledgeGraph:
         return out
 
     def find_path(self, person_a: str, person_b: str, *, max_hops: int = 4) -> list[str]:
-        # Path via shared memories (m1 mentions A and B both)
+        """Return memory ids that mention both people."""
         r = self._conn.execute(
             "MATCH (m:MemoryNode)-[:MENTIONS]->(a:Person {id:$a}), "
             "(m)-[:MENTIONS]->(b:Person {id:$b}) "
@@ -423,12 +411,10 @@ class KnowledgeGraph:
             out.append({"memory_id": row[0], "content": row[1], "weight": row[2]})
         return out
 
-    # ----- Cascading delete (GDPR) ---------------------------------------
     def forget_capture(self, capture_id: str) -> int:
         """Delete a Capture and any MemoryNodes solely derived from it.
 
-        Returns the number of MemoryNodes deleted. KG edges go away by table
-        constraint when the source/target node is deleted.
+        Returns the number of MemoryNodes deleted; edges go away with them.
         """
         memories_only_from_this = self._conn.execute(
             "MATCH (m:MemoryNode)-[:DERIVED_FROM]->(c:Capture {id:$cid}) "

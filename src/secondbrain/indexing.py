@@ -1,8 +1,4 @@
-"""Capture → chunk → embed → index pipeline.
-
-Wires the embedder, chunker, vector store, and text index together in one
-place so the daemon and CLI can share the exact same indexing path.
-"""
+"""Capture → chunk → embed → index pipeline, shared by the daemon and CLI."""
 
 from __future__ import annotations
 
@@ -53,12 +49,11 @@ class Indexer:
         return len(chunks)
 
     def index_capture_keyword_only(self, capture: Capture) -> int:
-        """BM25-only fallback: index into tantivy without embedding.
+        """Index into tantivy without embedding. Returns # chunks indexed.
 
-        For callers whose embedder is unavailable at write time (e.g. the
-        gateway before the model is cached, or Ollama down). The capture must
-        already be persisted to OLTP so the next `secondbrain index` bulk
-        pass backfills the vector side through the normal embed path.
+        For callers whose embedder is unavailable at write time. The capture
+        must already be in OLTP so the next `secondbrain index` pass backfills
+        the vector side.
         """
         chunks = self._chunks(capture)
         if not chunks:

@@ -20,8 +20,8 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PublicKey,
 )
 
-# Tiny BIP-39-style word list; replace with the canonical 2048-word list when
-# we ship the Tauri pairing UX.
+# TODO: replace this BIP-39-style stand-in with the canonical 2048-word list
+# before the Tauri pairing UX ships.
 _WORDS = [
     "alpha",
     "bravo",

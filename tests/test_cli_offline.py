@@ -22,14 +22,11 @@ def test_offline_flag_engages_air_gap_for_subcommand():
     subcommand also gets to read ctx.obj["offline"]."""
     runner = CliRunner()
 
-    # Sanity: not engaged before
     assert is_engaged() is False
 
-    # We don't pass --db; status() returns early on missing path. But by then
-    # the group callback has already engaged the guard. We assert by direct
-    # socket connect after the run — except CliRunner finalises ctx between
-    # invocations, so we hook the engaged check via a callback that fires
-    # while the command is alive.
+    # Without --db, status() returns early, but the group callback has already
+    # engaged the guard. CliRunner finalises ctx between invocations, so the
+    # check has to run from inside a command that is still alive.
     seen: list[bool] = []
 
     @main.command(name="airgap-probe", hidden=True)

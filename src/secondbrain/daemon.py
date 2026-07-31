@@ -1,15 +1,7 @@
-"""SecondBrain capture daemon (capture + memory wiring).
+"""SecondBrain capture daemon: capture cascade + optional memory pipeline.
 
-A long-running asyncio process that:
-
-    1. Opens the encrypted OLTP store.
-    2. Wires the cascade (deny-list, AX-hash, dHash/pHash/SSIM, capability cache).
-    3. Drives a `FrameSource` and persists what survives the cascade.
-    4. (optional) For each persisted capture, runs the memory pipeline:
-       chunk → embed → LanceDB + tantivy + Kùzu KG (with A-MEM linking).
-
-The daemon does not own a frame source itself — callers (CLI / tests) inject
-one. That keeps the daemon trivially testable end-to-end without a display.
+Callers (CLI / tests) inject the `FrameSource`, so the daemon is testable
+end-to-end without a display.
 """
 
 from __future__ import annotations
@@ -48,38 +40,25 @@ class DaemonConfig:
     keyring_service: str = "secondbrain.device_root_key"
     keyring_user: str = "default"
     metrics: CascadeMetrics = field(default_factory=CascadeMetrics)
-    # Set to False in tests / sandboxed CI to avoid the embedder model load.
+    # False in tests / sandboxed CI to avoid the embedder model load.
     enable_memory: bool = True
-    # Stub embedder skips the multi-GB Nomic v2 download — useful for smoke tests.
+    # Stub embedder skips the multi-GB Nomic v2 download.
     use_stub_embedder: bool = False
-    # Visual embeddings (ColQwen2.5) are expensive (~3.3s/image on M-series).
-    # Off by default; turn on once `--visual` is requested.
     enable_visual: bool = False
-    # When True, captures with empty AX text fall through to Apple Vision OCR
-    # (free, ANE-accelerated, ~80–150ms/frame on M-series). Off by default
-    # because tests run images that aren't text and OCR would still try.
     enable_ocr_fallback: bool = False
-    # When True, importance scoring + commitment extraction + digest synthesis
-    # all route through actants.LLM.* (Ollama default). Each call falls back
-    # to its heuristic on timeout/error so a flaky LLM never blocks ingest.
+    # Routes importance/commitments/digest through actants.LLM.*; each call
+    # falls back to its heuristic on timeout/error so a flaky LLM never blocks
+    # ingest.
     enable_llm: bool = False
-    # Optional model override for the actants LLM path (importance + commitment
-    # extraction). None → actants picks its default model.
+    # None → actants picks its env-driven default model.
     llm_model: str | None = None
-    # Optional per-call timeout override (seconds) for the three LLM swap-ins.
     # None keeps each swap-in's own default (5s scorer / 8s extractor / 30s
-    # synthesizer) — sized for warm hosted or warm local models. Raise it when
-    # running a slower local model so calls don't silently fall back to the
-    # heuristics.
+    # synthesizer). Raise it for slower local models so calls don't silently
+    # fall back to the heuristics.
     llm_timeout_s: float | None = None
-    # When True, embeddings also route through actants (default `nomic-embed-text`
-    # via Ollama). False keeps the local sentence-transformers Nomic v2 path.
+    # True routes embeddings through actants; False keeps local Nomic v2.
     llm_embeddings: bool = False
     llm_embedding_model: str | None = None
-    # Sensitive-content redaction gate. False keeps the daemon's existing
-    # behavior (no classifier wired). True attaches a classifier — today the
-    # heuristic baseline; the Florence-backed implementation lands behind the
-    # [redact] extra in a follow-up PR.
     enable_redact: bool = False
     redact_threshold: float = 0.6
 
@@ -106,14 +85,7 @@ class Daemon:
         return open_unencrypted(self.cfg.db_path)
 
     def _build_memory_layer(self):
-        """Stand up KG + vector + tantivy + memory pipeline.
-
-        Layout:
-            <db_path>                — OLTP (encrypted SQLite)
-            <db_path>.parent/lance/  — LanceDB chunks
-            <db_path>.parent/tantivy/— BM25 index
-            <db_path>.parent/kg/     — Kùzu graph
-        """
+        """Stand up KG + vector + tantivy + memory pipeline under db_path.parent."""
         base = self.cfg.db_path.parent
         if self.cfg.use_stub_embedder:
             from secondbrain.embed.stub import StubEmbedder
@@ -126,9 +98,8 @@ class Daemon:
         else:
             embedder = TextEmbedder()
 
-        # Flip the LLM swap-in points if requested. Honor SECONDBRAIN_LLM_*
-        # env vars (BYO-LLM contract) by mirroring them into actants's
-        # ACTANTS_* settings before any LLM client is constructed.
+        # SECONDBRAIN_LLM_* must be mirrored into actants's ACTANTS_* settings
+        # before any LLM client is constructed.
         if self.cfg.enable_llm:
             from secondbrain.llm_config import apply_to_actants_env, from_env
             from secondbrain.memory.commitments import use_actants_extractor
@@ -138,8 +109,7 @@ class Daemon:
             llm_cfg = from_env()
             apply_to_actants_env(llm_cfg)
 
-            # CLI `--llm-model` takes precedence over env. Otherwise let actants
-            # pick its env-driven default.
+            # CLI `--llm-model` takes precedence over env.
             model = self.cfg.llm_model or llm_cfg.model
 
             timeout_kw = {"timeout_s": self.cfg.llm_timeout_s} if self.cfg.llm_timeout_s else {}
@@ -188,8 +158,6 @@ class Daemon:
             redact_threshold=self.cfg.redact_threshold,
         )
         capability = CapabilityCache(conn)
-        # Wire the audit log so the pipeline can record redaction events.
-        # Same connection as the rest of the OLTP store; same encryption.
         from secondbrain.compliance.audit import AuditLog
 
         audit = AuditLog(conn)
@@ -248,10 +216,9 @@ class Daemon:
             memory_enabled=self.cfg.enable_memory,
             stub_embedder=self.cfg.use_stub_embedder,
         )
-        # Signal handlers can only be installed on the main thread of the
-        # main interpreter. The `secondbrain ui` shell runs us on a worker
-        # thread, where this would raise ValueError — swallow it; the UI
-        # uses daemon.stop() explicitly on quit.
+        # Signal handlers only install on the main thread of the main
+        # interpreter. `secondbrain ui` runs the daemon on a worker thread,
+        # where this raises ValueError; that shell calls stop() explicitly.
         import threading
 
         if threading.current_thread() is threading.main_thread():
@@ -269,12 +236,10 @@ class Daemon:
                     id=capture.id,
                     app=capture.app_name,
                 )
-                # OCR fallback when AX text is empty.
-                # We accept two sources: an on-disk `pixel_path` (HEIC mode)
-                # OR the in-memory PIL image the capture pipeline stashes for
-                # the visual encoder (PNG/inline mode). The latter case is
-                # the production path on macOS — without it Cursor / Slack /
-                # Electron captures would never get text.
+                # Two OCR sources: an on-disk `pixel_path` (HEIC mode) or the
+                # in-memory PIL image stashed for the visual encoder
+                # (PNG/inline mode). The latter is the macOS production path —
+                # without it Cursor / Slack / Electron captures get no text.
                 if self.cfg.enable_ocr_fallback and not capture.ax_text:
                     try:
                         from secondbrain.capture.pipeline import _IMAGE_FOR_VISUAL
@@ -362,12 +327,10 @@ class Daemon:
             log.info("daemon.stop", metrics=self.metrics.as_dict())
 
     def _encode_visual(self, image):
-        """Encode a single image with ColQwen2.5; reduce to a (P, 128) numpy
-        array suitable for `VisualStore.add`. Heavy, runs in a thread."""
+        """Encode one image with ColQwen2.5 into a (P, 128) array. Runs in a thread."""
         import numpy as np
 
         out = self._visual.embed_images([image])
-        # out is (1, P, dim) torch.Tensor on whatever device the embedder used
         try:
             arr = out[0].detach().to("cpu").float().numpy()
         except AttributeError:

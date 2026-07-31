@@ -1,27 +1,10 @@
 """Text embeddings — Nomic Embed v2 MoE on CPU by default.
 
-Two backends, selected at construction:
+Two backends: `local` (sentence-transformers) and `actants` (Ollama et al.).
 
-  - `backend="actants"` (preferred when Ollama is up) — routes through
-    `actants.Embeddings`, which gives you provider switching, tracing, and
-    cost tracking for free. Default model is whatever Ollama serves under
-    the same EmbeddingSettings; we ask for `nomic-embed-text` (the
-    distilled-into-Ollama Nomic v1.5; the v2 MoE model is HF-only today).
-
-  - `backend="local"` (default fallback) — direct `sentence-transformers`
-    against `nomic-ai/nomic-embed-text-v2-moe` on CPU. Validated by the
-    initial spike at 83.7 strings/sec on a laptop, 768-d normalized.
-
-The `EMBEDDING_DIM` constant stays 768 because that's what every consumer
-(`store/vector.py`, `embed/stub.py`) is sized for. If you switch to a
-different actants model whose dim != 768, the LanceDB schema needs a
-matching update.
-
-Public surface:
-    embedder = TextEmbedder()                       # local default
-    embedder = TextEmbedder.via_actants()           # actants/Ollama path
-    vecs = embedder.embed_passages(["..."])
-    qvec = embedder.embed_query("...")
+`EMBEDDING_DIM` is 768 because every consumer (`store/vector.py`,
+`embed/stub.py`) is sized for it — switching to a model with a different dim
+requires a matching LanceDB schema update.
 """
 
 from __future__ import annotations
@@ -51,8 +34,6 @@ class TextEmbedderConfig:
     batch_size: int = 8
     normalize: bool = True
     backend: Backend = "local"
-    # When backend=="actants", we route through actants.Embeddings.
-    # Model defaults to ACTANTS_DEFAULT_MODEL ("nomic-embed-text" via Ollama).
     actants_model: str = ACTANTS_DEFAULT_MODEL
 
 
@@ -60,9 +41,9 @@ def _run_coro_blocking(coro):
     """Run a coroutine from sync code, event-loop-safe.
 
     `asyncio.run` raises RuntimeError when a loop is already running on this
-    thread (the gateway's aiohttp handlers and the daemon's consume loop both
-    call the sync embed surface). In that case, run the coroutine on a private
-    thread's fresh loop and block until it finishes.
+    thread — the gateway's aiohttp handlers and the daemon's consume loop both
+    call the sync embed surface. In that case the coroutine runs on a private
+    thread's fresh loop, blocking until it finishes.
     """
     try:
         asyncio.get_running_loop()
@@ -117,7 +98,6 @@ class TextEmbedder:
             )
         )
 
-    # ------- backend: local sentence-transformers -------
     def _ensure_local(self) -> SentenceTransformer:
         if self._model is not None:
             return self._model
@@ -139,7 +119,6 @@ class TextEmbedder:
                 )
         return self._model
 
-    # ------- backend: actants -------
     def _ensure_actants(self):
         if self._actants is not None:
             return self._actants

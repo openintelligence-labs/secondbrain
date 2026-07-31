@@ -1,17 +1,7 @@
-"""H-06 — LLM-in-the-loop tests through actants.
+"""LLM-in-the-loop tests through actants. Skipped when Ollama isn't reachable.
 
-These tests skip when Ollama isn't reachable. When it is, they exercise the
-real call path through `actants.LLM` / `actants.Embeddings` for the four
-swap-in points wired in H-02..H-05:
-
-    1. Embeddings via actants → LanceDB write + cosine search
-    2. Importance scorer (LLM) returns sane numeric range
-    3. Commitment extractor (LLM, Pydantic structured output) finds a known
-       commitment in a fixture sentence
-    4. Digest synthesizer (LLM) produces non-keyword themes
-
-The fallback paths inside each call mean a flaky LLM doesn't break tests —
-but a healthy LLM should still produce LLM-like (not heuristic-shaped) output.
+Each swap-in point falls back to a heuristic, so these assert on LLM-shaped
+(not heuristic-shaped) output to prove the LLM path actually ran.
 """
 
 from __future__ import annotations
@@ -37,9 +27,8 @@ _PRECONDITION = pytest.mark.skipif(
 )
 
 
-# Default chat model: a fully local Ollama model so the default test suite
-# never egresses. Override with SECONDBRAIN_TEST_CHAT_MODEL to point at any
-# other Ollama-served model (including cloud models) when explicitly wanted.
+# Default to a fully local Ollama model so the default test suite never
+# egresses. Override with SECONDBRAIN_TEST_CHAT_MODEL for any other model.
 _CHAT_MODEL = os.environ.get("SECONDBRAIN_TEST_CHAT_MODEL", "gemma4:latest")
 _EMBED_MODEL = os.environ.get("SECONDBRAIN_TEST_EMBED_MODEL", "nomic-embed-text")
 
@@ -51,8 +40,6 @@ def test_actants_embedder_round_trip():
     embedder = TextEmbedder.via_actants(model=_EMBED_MODEL)
     vec_a = embedder.embed_query("snowflake migration deadline")
     vec_b = embedder.embed_query("kafka pipeline outage")
-    # Real embeddings: same prompt should embed close to itself, different
-    # prompts should embed further apart.
     import numpy as np
 
     same = float(np.dot(vec_a, embedder.embed_query("snowflake migration deadline")))
@@ -75,9 +62,6 @@ def test_actants_importance_scorer_returns_in_range():
         trivial = score("a")
         assert 0.0 <= critical <= 10.0
         assert 0.0 <= trivial <= 10.0
-        # A real LLM, given a clearly-critical commitment, should rate it
-        # higher than a one-character no-content snippet. If the LLM
-        # disagrees, the test fails — this is the whole point of running it.
         assert critical >= trivial
     finally:
         use_heuristic_scorer()
@@ -101,9 +85,7 @@ def test_actants_commitment_extractor_finds_first_person_promise():
             capture_id="c-test",
             now=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
         )
-        # The LLM should at minimum find the first-person commitment.
-        # The second sentence is about Pat (third person) — fine if it's
-        # included or excluded.
+        # The second sentence is third-person; including it is acceptable.
         assert len(out) >= 1
         assert any("send" in c.content.lower() or "design doc" in c.content.lower() for c in out)
     finally:
@@ -133,12 +115,9 @@ def test_actants_digest_synthesizer_produces_prose_themes():
                 memories
             )
         )
-        # Themes should look like prose phrases, not single keywords. The
-        # heuristic produces strings like "snowflake (1)" — the LLM should
-        # produce something with spaces and varied vocabulary.
         assert len(themes) >= 1
         if themes:
-            # Heuristic outputs match `^\w+ \(\d+\)$`. The LLM shouldn't.
+            # The heuristic emits "snowflake (1)"; LLM prose should not match.
             import re
 
             heuristic_shape = re.compile(r"^\S+ \(\d+\)$")

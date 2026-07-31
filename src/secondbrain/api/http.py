@@ -1,18 +1,11 @@
 """127.0.0.1 HTTP gateway for the Tauri shell.
 
-Architecture: every UI surface (menubar tray, ⌘-Space overlay, timeline view)
-is a thin client over this gateway. The gateway runs in-process inside the
-daemon, so it shares the daemon's KG / vector / text handles (no second
-Kùzu connection needed — see `tests/test_forget_concurrency.py`).
+Every UI surface is a thin client over this gateway. It runs in-process inside
+the daemon and shares the daemon's KG / vector / text handles, because each of
+those stores takes an exclusive process-wide lock on its files.
 
-Security:
-  - Binds 127.0.0.1 only.
-  - `Origin` header is validated against an allowlist (Tauri's
-    `tauri://localhost`, plus the dev `http://localhost:<port>`).
-  - DNS-rebinding defense: any non-loopback Host header is rejected.
-
-This is intentionally tiny — every endpoint maps directly to an existing
-in-process function. No new business logic.
+Security: binds loopback only, validates `Origin` against an allowlist, and
+rejects any non-loopback `Host` header (DNS-rebinding defense).
 """
 
 from __future__ import annotations
@@ -30,8 +23,7 @@ from secondbrain.api.mcp_server import call as mcp_call
 
 
 def _json_default(o):
-    """Make datetime serializable so we can pass MCP tool output straight to
-    `web.json_response`."""
+    """Make datetime serializable so MCP tool output passes straight through."""
     if isinstance(o, datetime):
         return o.isoformat()
     raise TypeError(f"not JSON-serializable: {type(o).__name__}")
@@ -62,7 +54,7 @@ class GatewayConfig:
 def _origin_ok(request: web.Request) -> bool:
     origin = request.headers.get("Origin")
     if origin is None:
-        # Direct curl/local-only health checks have no Origin and that's fine.
+        # Direct curl / local health checks send no Origin.
         return True
     return origin in _ALLOWED_ORIGINS
 
@@ -75,7 +67,6 @@ def _host_ok(request: web.Request) -> bool:
 
 @web.middleware
 async def _guard(request: web.Request, handler):
-    # Short-circuit CORS preflight from the webview.
     if request.method == "OPTIONS":
         return _cors(web.Response(status=204), request)
     if not _host_ok(request):
@@ -103,9 +94,6 @@ def _cors(response: web.StreamResponse, request: web.Request) -> web.StreamRespo
     return response
 
 
-# ---- Route handlers --------------------------------------------------------
-
-
 def _disk_free_gib(path) -> float | None:
     try:
         import shutil
@@ -119,22 +107,19 @@ def _disk_free_gib(path) -> float | None:
 async def health(request: web.Request) -> web.Response:
     """Deep health: OLTP reachable, sidecar alive (if attached), disk space.
 
-    Returns 200 with per-check status when everything's ok, 503 when any
-    individual check failed. Operators can scrape this from launchd-style
-    KeepAlive policies or external monitors.
+    Returns 200 with per-check status, or 503 when any check failed.
     """
     ctx: MCPContext = request.app["ctx"]
     daemon = request.app.get("daemon")
     checks: dict[str, Any] = {}
 
-    # OLTP — SELECT 1 round-trips the encryption + WAL + journal mode.
+    # SELECT 1 round-trips the encryption + WAL + journal mode.
     try:
         ctx.oltp.execute("SELECT 1").fetchone()
         checks["oltp"] = {"ok": True}
     except Exception as e:
         checks["oltp"] = {"ok": False, "err": repr(e)}
 
-    # Disk free on the OLTP path's mount.
     db_path = getattr(getattr(ctx, "oltp_path", None), "parent", None)
     free_gib = _disk_free_gib(db_path) if db_path is not None else None
     if free_gib is not None:
@@ -142,7 +127,6 @@ async def health(request: web.Request) -> web.Response:
     else:
         checks["disk"] = {"ok": True, "free_gib": None}
 
-    # Daemon (optional).
     if daemon is not None:
         checks["daemon"] = {
             "ok": True,
@@ -224,7 +208,7 @@ async def commitments(request: web.Request) -> web.Response:
 
 
 async def status_endpoint(request: web.Request) -> web.Response:
-    """Capture metrics — what the menubar tray shows."""
+    """Capture metrics for the menubar tray."""
     daemon = request.app.get("daemon")
     if daemon is None:
         return _json({"running": False})
@@ -267,7 +251,7 @@ async def add_note(request: web.Request) -> web.Response:
 
 
 async def audit_log(request: web.Request) -> web.Response:
-    """Recent audit-log entries — Settings → Audit Log feeds this."""
+    """Recent audit-log entries, newest first."""
     ctx: MCPContext = request.app["ctx"]
     limit = int(request.query.get("limit", 200))
     rows = ctx.oltp.execute(
@@ -293,7 +277,7 @@ async def audit_log(request: web.Request) -> web.Response:
 
 
 async def llm_config(request: web.Request) -> web.Response:
-    """Surface the BYO-LLM env config so the Settings UI shows what's live."""
+    """Report the active BYO-LLM env configuration."""
     from secondbrain.llm_config import from_env
 
     cfg = from_env()
@@ -327,12 +311,10 @@ async def llm_config(request: web.Request) -> web.Response:
 
 
 def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
-    """Hand-rolled Prometheus text format. No prometheus_client dep.
+    """Render cascade, memory-pipeline, and audit metrics as Prometheus text.
 
-    Surfaces: capture cascade gate counters, AX-text ratio, paused flag,
-    memory pipeline degradation counters (if a daemon is attached), and
-    the audit-log row count. Histograms are out of scope for v1 — we
-    expose counters and gauges only.
+    Hand-rolled to avoid a prometheus_client dependency; counters and gauges
+    only, no histograms.
     """
     lines: list[str] = []
 
@@ -382,7 +364,6 @@ def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
             "1 when capture is paused via /daemon.",
         )
 
-        # Memory pipeline degradation counters, if the daemon attached one.
         mem = getattr(daemon, "_memory", None)
         if mem is not None:
             pm = mem.metrics.as_dict()
@@ -397,7 +378,6 @@ def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
                 "Commitment extractor failures that fell back to none.",
             )
 
-    # Audit log size — useful sanity gauge.
     try:
         n_audit = ctx.oltp.execute("SELECT COUNT(1) FROM audit_log").fetchone()[0]
         gauge(
@@ -406,7 +386,7 @@ def _render_prometheus(daemon: Any, ctx: MCPContext) -> str:
             "Total audit-log rows (search, recall, forget, etc.).",
         )
     except Exception:
-        # Table may not exist yet on a fresh DB; that's fine.
+        # The table may not exist yet on a fresh DB.
         pass
 
     return "\n".join(lines) + "\n"
@@ -434,9 +414,6 @@ async def daemon_control(request: web.Request) -> web.Response:
         daemon.cfg.metrics.paused = False
         return _json({"ok": True, "state": "running"})
     return _json({"ok": False, "reason": f"unknown action: {action}"}, status=400)
-
-
-# ---- App construction ------------------------------------------------------
 
 
 def make_app(
@@ -471,7 +448,6 @@ async def serve(ctx: MCPContext, *, daemon: Any = None, cfg: GatewayConfig | Non
     site = web.TCPSite(runner, cfg.host, cfg.port)
     await site.start()
     try:
-        # Block forever.
         await asyncio.Event().wait()
     finally:
         await runner.cleanup()

@@ -345,7 +345,7 @@ def ui(
     from secondbrain.daemon import Daemon, DaemonConfig
     from secondbrain.preflight import gate, run_preflight
 
-    # Locate the Tauri binary. Prefer the release build, fall back to debug.
+    # Prefer the release build, fall back to debug.
     repo_root = Path(__file__).resolve().parents[2]
     candidates = [
         repo_root / "app" / "src-tauri" / "target" / "release" / "secondbrain-app",
@@ -358,7 +358,6 @@ def ui(
             '(. "$HOME/.cargo/env" && cd src-tauri && cargo build --release)'
         )
 
-    # Preflight: production mode gets gated by the host audit.
     if not demo and not skip_preflight:
         click.echo("running preflight…", err=True)
         checks = run_preflight(db, probe_tcc=True)
@@ -375,10 +374,9 @@ def ui(
             raise click.ClickException("preflight failed")
         click.echo("", err=True)
 
-    # Build the Daemon and let it own all the stateful handles (OLTP, KG,
-    # LanceDB, tantivy). The gateway then borrows those same handles via
-    # daemon.mcp_context() — sharing is mandatory because every store grabs
-    # an exclusive process-wide lock on its on-disk files.
+    # The Daemon owns every stateful handle (OLTP, KG, LanceDB, tantivy) and
+    # the gateway borrows them via mcp_context(). Sharing is mandatory: each
+    # store takes an exclusive process-wide lock on its on-disk files.
     cfg = DaemonConfig(
         db_path=db,
         use_encryption=not demo,
@@ -391,7 +389,6 @@ def ui(
     daemon.build_pipeline()
     ctx = daemon.mcp_context()
 
-    # Frame source.
     if not demo:
         from secondbrain.capture.macos_sck import MacOSScreenSource
 
@@ -500,15 +497,13 @@ def mcp_doctor(db: Path) -> None:
     bin_path = _shutil.which("secondbrain")
     click.echo(f"secondbrain binary   : {bin_path or '(not on PATH)'}")
 
-    # BYO-LLM: surface what env vars the user has set so they can spot a typo.
     from secondbrain.llm_config import from_env
 
     llm_cfg = from_env()
     click.echo(f"LLM config           : {llm_cfg.describe()}")
 
-    # If the user picked a hosted provider, check the matching SDK is
-    # importable. This is the second-most-common BYO-LLM failure mode after
-    # forgetting the API key.
+    # A missing provider SDK is the second-most-common BYO-LLM failure mode
+    # after a forgotten API key.
     if llm_cfg.provider:
         import importlib.util as _ilu
 
@@ -678,7 +673,7 @@ def digest(db: Path, period: str, day: str | None, llm: bool, llm_model: str | N
     on = dt.fromisoformat(day).date() if day else date_cls.today()
     digest = render(kg, period, day=on)  # type: ignore[arg-type]
     if llm:
-        # reset so a follow-up CLI invocation in the same process is deterministic
+        # Reset so a follow-up invocation in the same process is deterministic.
         use_heuristic_synthesizer()
     click.echo(f"Digest [{digest.period}] {digest.period_start.isoformat()}")
     click.echo(f"  importance_sum: {digest.importance_sum:.1f}")

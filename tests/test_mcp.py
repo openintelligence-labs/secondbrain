@@ -1,9 +1,4 @@
-"""MCP server smoke test.
-
-Drives every one of the 7 tools through the in-process router. No live
-transport — that lands when we point Claude Desktop at a built bundle and
-record an end-to-end demo.
-"""
+"""MCP smoke test: every one of the 7 tools through the in-process router."""
 
 from __future__ import annotations
 
@@ -96,7 +91,7 @@ def test_add_note_via_mcp(tmp_path: Path):
 
 
 def test_add_note_is_searchable(tmp_path: Path):
-    """#7 — a note must be retrievable through memory.search hybrid RRF."""
+    """A note must be retrievable through memory.search hybrid RRF."""
     ctx = _seed(tmp_path)
     added = call(ctx, "memory.add_note", {"text": "Quarterly OKR retro moved to Thursday 3pm."})
     out = call(ctx, "memory.search", {"query": "quarterly OKR retro Thursday", "limit": 5})
@@ -104,7 +99,7 @@ def test_add_note_is_searchable(tmp_path: Path):
 
 
 def test_add_note_forget_cascades(tmp_path: Path):
-    """Note provenance: forget --capture-id must delete the note's MemoryNode."""
+    """forget --capture-id must delete the note's MemoryNode."""
     ctx = _seed(tmp_path)
     added = call(ctx, "memory.add_note", {"text": "Throwaway note to be forgotten."})
     out = call(ctx, "memory.forget", {"capture_id": added["capture_id"], "reason": "test"})
@@ -112,8 +107,7 @@ def test_add_note_forget_cascades(tmp_path: Path):
 
 
 def test_add_note_survives_embedder_outage(tmp_path: Path):
-    """When the embedder is down, notes still land in tantivy (BM25 finds
-    them) and the OLTP capture row exists for a later vector backfill."""
+    """With the embedder down, notes still land in tantivy and OLTP."""
 
     class _BrokenEmbedder:
         def embed_passages(self, texts):
@@ -127,10 +121,9 @@ def test_add_note_survives_embedder_outage(tmp_path: Path):
     added = call(ctx, "memory.add_note", {"text": "Rotate the Vault signing key next sprint."})
     assert added["vector_indexed"] is False
     assert added["chunks_indexed"] >= 1
-    # BM25 side of the hybrid index sees it immediately.
     bm25 = ctx.text.search("rotate vault signing key", limit=5)
     assert any(h["capture_id"] == added["capture_id"] for h in bm25)
-    # OLTP row persisted so `secondbrain index` can backfill vectors.
+    # The OLTP row lets `secondbrain index` backfill vectors later.
     row = ctx.oltp.execute(
         "SELECT source, ax_text FROM captures WHERE id=?", (added["capture_id"],)
     ).fetchone()
@@ -141,7 +134,6 @@ def test_forget_via_mcp(tmp_path: Path):
     ctx = _seed(tmp_path)
     out = call(ctx, "memory.forget", {"capture_id": "c1", "reason": "user request"})
     assert out["deleted"] >= 1
-    # Audit log row exists
     rows = ctx.oltp.execute("SELECT action FROM audit_log WHERE action='forget'").fetchall()
     assert len(rows) >= 1
 

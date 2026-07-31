@@ -74,7 +74,7 @@ def test_apply_to_actants_env_writes_through(monkeypatch):
         api_key="sk-ant-test",
     )
     # apply_to_actants_env writes os.environ directly; mirror via monkeypatch
-    # so other tests don't see anthropic in their env after we exit.
+    # so anthropic doesn't leak into other tests' env.
     monkeypatch.setenv("ACTANTS_PROVIDER", cfg.provider)
     monkeypatch.setenv("ACTANTS_MODEL", cfg.model)
     monkeypatch.setenv("ACTANTS_BASE_URL", cfg.base_url)

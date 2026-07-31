@@ -1,6 +1,6 @@
-"""T-02 — HTTP gateway exposes the same 7 tools as MCP, plus /health + /status.
+"""HTTP gateway: the same 7 tools as MCP, plus /health and /status.
 
-Tests use aiohttp's TestClient so no real socket is opened.
+Uses aiohttp's TestClient, so no real socket is opened.
 """
 
 from __future__ import annotations
@@ -56,8 +56,7 @@ def _seed(tmp_path: Path) -> MCPContext:
 @pytest.fixture
 async def client(tmp_path: Path):
     ctx = _seed(tmp_path)
-    # Origin allow-listing is for production; in tests we send no Origin
-    # header, which is itself allowed.
+    # These tests send no Origin header, which the allowlist permits.
     app = make_app(ctx, cfg=GatewayConfig(require_origin=True))
     async with TestClient(TestServer(app)) as c:
         yield c
@@ -99,7 +98,6 @@ async def test_commitments(client):
     assert r.status == 200
     body = await r.json()
     assert "commitments" in body
-    # Sam's first-person promise should appear.
     assert any(
         "send" in c["content"].lower() or "ship" in c["content"].lower()
         for c in body["commitments"]
@@ -110,7 +108,6 @@ async def test_status(client):
     r = await client.get("/status")
     assert r.status == 200
     body = await r.json()
-    # No daemon attached in this test, so running=False.
     assert body["running"] is False
 
 
@@ -148,8 +145,7 @@ async def test_add_note(client):
 
 
 async def test_add_note_is_hybrid_searchable(client):
-    """Regression for #7 — notes must land in the LanceDB + tantivy indexes,
-    not just the KG, so /search RRF-ranked hybrid retrieval finds them."""
+    """Notes must land in LanceDB + tantivy, not just the KG, so /search finds them."""
     note = "I will send the v0.3.0 release notes to the team by Friday."
     r = await client.post("/add-note", json={"text": note})
     assert r.status == 200
@@ -168,8 +164,6 @@ async def test_add_note_is_hybrid_searchable(client):
 
 
 async def test_audit_log(client):
-    # The seed already triggered audit rows via ingestion; even if not,
-    # the endpoint should return a structured empty list rather than 500.
     r = await client.get("/audit-log?limit=10")
     assert r.status == 200
     body = await r.json()
@@ -187,5 +181,4 @@ async def test_llm_config(client):
 
 async def test_daemon_control_without_daemon(client):
     r = await client.post("/daemon", json={"action": "pause"})
-    # No daemon attached → 409
     assert r.status == 409

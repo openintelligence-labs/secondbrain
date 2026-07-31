@@ -59,8 +59,8 @@ CREATE INDEX IF NOT EXISTS captures_app_idx
 SCHEMA_MIGRATIONS: list[tuple[int, str]] = [
     (
         1,
-        # v1 is the baseline captures table — handled by CAPTURES_SCHEMA at
-        # creation. We still register it so user_version reflects what we ship.
+        # v1 is the baseline captures table, created by CAPTURES_SCHEMA;
+        # registered here so user_version reflects the shipped schema.
         CAPTURES_SCHEMA,
     ),
 ]

@@ -67,7 +67,7 @@ def test_restore_with_force_overwrites(tmp_path: Path) -> None:
     archive = tmp_path / "snapshot.tar.gz"
     backup_mod.make_backup(db, archive, secondbrain_version="test")
 
-    # Mutate the live DB so we can prove restore actually rolled it back.
+    # Mutate the live DB so restore has something to roll back.
     conn = open_unencrypted(db)
     conn.execute("INSERT INTO captures (id, source, captured_at) VALUES ('c2','t',2)")
     conn.commit()

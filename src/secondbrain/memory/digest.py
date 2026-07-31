@@ -78,8 +78,6 @@ def set_synthesizer(fn: Callable[[list[dict]], tuple[list[str], list[str]]]) -> 
     _synthesizer = fn
 
 
-# ----- actants-backed LLM synthesizer ------------------------------------
-
 import asyncio as _asyncio  # noqa: E402
 import threading as _threading  # noqa: E402
 

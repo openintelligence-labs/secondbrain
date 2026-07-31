@@ -1,17 +1,9 @@
 """Capture → MaRS-typed MemoryNode extractor.
 
-The extractor turns every Capture into one or more MemoryNodes:
+Turns every Capture into MemoryNodes typed `episodic`, `semantic`,
+`procedural`, or `commitment`. Only `episodic` is emitted today.
 
-    type='episodic'   — what was on screen at time T
-    type='semantic'   — derived facts (e.g. "Sam works on Snowflake")
-    type='procedural' — workflows / how-to
-    type='commitment' — first-person promise
-
-Today we only emit `episodic` per capture. The semantic/procedural/commitment
-extractors land with the LLM reflection loop.
-
-Provenance: every node carries a `sources=[capture_id]` list so cascading
-delete (`memory.forget`) is correct from day 1.
+Every node carries `sources=[capture_id]` so `memory.forget` cascades.
 """
 
 from __future__ import annotations

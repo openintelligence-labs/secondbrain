@@ -77,9 +77,6 @@ def _pipeline(conn, *, classifier, audit: AuditLog | None) -> CapturePipeline:
     )
 
 
-# --- spec §6.1: a redacted frame writes one audit row -------------------
-
-
 def test_redacted_frame_writes_one_audit_row():
     conn = _conn()
     audit = AuditLog(conn)
@@ -102,9 +99,6 @@ def test_redacted_frame_writes_one_audit_row():
     assert detail["app_name"] == "Safari"
     assert detail["app_bundle_id"] == "com.apple.Safari"
     assert "captured_at" in detail
-
-
-# --- spec §6.1: no sensitive content leaks into the audit row -----------
 
 
 def test_redaction_audit_row_carries_no_sensitive_content():
@@ -136,9 +130,6 @@ def test_redaction_audit_row_carries_no_sensitive_content():
     assert "hunter2" not in blob
 
 
-# --- contract: non-redacted paths do not pollute the audit log ----------
-
-
 def test_persisted_frame_writes_no_audit_row():
     conn = _conn()
     audit = AuditLog(conn)
@@ -164,9 +155,6 @@ def test_classifier_disabled_writes_no_audit_row():
     assert rows[0][0] == 0
 
 
-# --- contract: missing audit log is not a crash -------------------------
-
-
 def test_redaction_without_audit_log_does_not_crash():
     """A pipeline with audit=None still redacts correctly — the audit-log
     write is skipped, but the gate still drops the frame."""
@@ -178,9 +166,6 @@ def test_redaction_without_audit_log_does_not_crash():
     assert result is None
     # Metrics still recorded.
     assert pipe.metrics.by_gate.get("redacted") == 1
-
-
-# --- spec §6.1: signed export round-trips the redaction event -----------
 
 
 def test_signed_export_includes_redaction_event():

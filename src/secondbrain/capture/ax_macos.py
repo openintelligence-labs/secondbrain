@@ -1,22 +1,11 @@
 """macOS Accessibility-tree walk — gate 2 of the dedup cascade.
 
-Architecture: §3 cascade step "AX-tree subtree hash unchanged → skip".
+Walks the focused app's AX tree depth-first (capped at `MAX_NODES`) and hashes
+the concatenated text. An unchanged hash lets the cascade skip the frame
+without reading pixels.
 
-Implements subtree hashing plus `AXEnhancedUserInterface=true` to wake
-Electron/Chromium AX trees.
-
-Walks the focused application's accessibility tree depth-first, capping at
-`MAX_NODES` to bound CPU cost. Concatenates the visible `AXValue` and
-`AXTitle` of each node into a single string, hashes that with SHA-256.
-
-When the hash is identical to the previous frame's hash for the same focused
-app, the cascade skips the frame entirely (no pixels read).
-
-Caveats this module handles:
-- AppKit/SwiftUI native apps reliably populate AX.
-- Electron/Chromium apps require `AXEnhancedUserInterface=true` first.
-- Games / Metal-rendered surfaces / Figma canvas return empty trees → cascade
-  falls through to dHash.
+Electron/Chromium hosts need `AXEnhancedUserInterface=true` before they expose
+a tree; Metal-rendered surfaces never do, and fall through to dHash.
 """
 
 from __future__ import annotations
@@ -25,8 +14,7 @@ import hashlib
 import sys
 from dataclasses import dataclass, field
 
-# This module is macOS-only. Importing on other OSes returns a stub that always
-# reports "AX unavailable" so cross-platform code paths stay simple.
+# On other platforms every entry point degrades to "AX unavailable".
 _IS_MACOS = sys.platform == "darwin"
 
 if _IS_MACOS:
@@ -52,14 +40,11 @@ class AXSnapshot:
     text: str
     node_count: int
     truncated: bool
-    # `digest` is `None` whenever we have no AX signal — that includes apps
-    # like Cursor/VS Code/Slack/Electron that report empty AX trees, and any
-    # error path. The cascade's `ax_unchanged` gate skips frames whose
-    # digest is None, falling through to pixel-based gates instead.
+    # None whenever there is no AX signal (empty Electron trees, error paths).
+    # The cascade's `ax_unchanged` gate falls through to pixel-based gates then.
     digest: bytes | None
     enhanced_toggled: bool = False
     error: str | None = None
-    # The window-title (best-effort) of the focused window. Used for deny-list.
     window_title: str | None = None
     extras: dict = field(default_factory=dict)
 
@@ -149,11 +134,8 @@ def snapshot_focused_app(*, max_nodes: int = MAX_NODES) -> AXSnapshot:
     bundle_id = front.bundleIdentifier()
     app_name = front.localizedName()
 
-    # The OS will report `loginwindow` as the frontmost application when the
-    # process invoking this code lacks Accessibility (TCC) permission. The
-    # only fix is to run the daemon from a code-signed bundle that the user
-    # has explicitly permitted in System Settings → Privacy & Security →
-    # Accessibility. From a vanilla bash/Python invocation, expect this.
+    # The OS reports `loginwindow` as frontmost when this process lacks
+    # Accessibility (TCC) permission — expected from a plain shell invocation.
     if bundle_id == "com.apple.loginwindow":
         return AXSnapshot(
             app_name=app_name,
@@ -193,13 +175,10 @@ def snapshot_focused_app(*, max_nodes: int = MAX_NODES) -> AXSnapshot:
         )
 
     text = "\n".join(parts)
-    # If the app exposed no readable text (Cursor, VS Code, Slack, Figma,
-    # any Metal-rendered surface), don't fabricate a digest — that would
-    # cause every frame to look "AX-unchanged" forever. None tells the
-    # cascade to skip the AX gate and let pixel hashes decide.
+    # Never fabricate a digest for empty text: every frame would then look
+    # "AX-unchanged" forever. None lets pixel hashes decide instead.
     digest = hashlib.sha256(text.encode("utf-8")).digest() if text else None
 
-    # Best-effort window title.
     window_title: str | None = None
     try:
         focused_window = _copy(app_elem, "AXFocusedWindow")

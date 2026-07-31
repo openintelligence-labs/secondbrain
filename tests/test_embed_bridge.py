@@ -1,10 +1,8 @@
 """`_run_coro_blocking` — the sync↔async bridge under `TextEmbedder`.
 
-The actants embedding backend is async-only; the sync `embed_passages` /
-`embed_query` surface used to call `asyncio.run`, which raises when a loop is
-already running on the calling thread (aiohttp gateway handlers, the daemon's
-consume loop). The bridge must work from both sync and async callers and
-propagate exceptions unchanged.
+It must work from both sync and async callers (aiohttp gateway handlers and the
+daemon's consume loop already hold a running loop) and propagate exceptions
+unchanged.
 """
 
 from __future__ import annotations
@@ -27,8 +25,8 @@ def test_bridge_without_running_loop():
 
 
 async def test_bridge_inside_running_loop():
-    # pytest-asyncio auto mode: we are on a running loop here — the exact
-    # situation the gateway's /add-note and /search handlers are in.
+    # pytest-asyncio auto mode puts this on a running loop, matching the
+    # gateway's /add-note and /search handlers.
     assert _run_coro_blocking(_double(21)) == 42
 
 

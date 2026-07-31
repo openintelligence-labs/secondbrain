@@ -114,7 +114,7 @@ class SyncthingBackend:
             name = p.name
             if name in self._seen_cache:
                 continue
-            # Skip blobs we wrote ourselves — Syncthing reflects everything.
+            # Skip self-authored blobs; Syncthing reflects everything back.
             if name.startswith(self.device_id + "-"):
                 self._mark_seen(name)
                 continue
@@ -124,8 +124,8 @@ class SyncthingBackend:
                 out.append((record["kind"], record["payload"]))
                 self._mark_seen(name)
             except Exception:
-                # Bad/foreign blob — leave it alone (another peer may handle it).
-                # We do NOT mark seen so a key rotation can revisit it.
+                # Bad/foreign blob — another peer may handle it. Deliberately
+                # not marked seen, so a key rotation can revisit it.
                 continue
         return out
 

@@ -85,9 +85,6 @@ async def client(tmp_path: Path):
         yield c
 
 
-# --- Each test below mirrors a call in app/src/api.ts ----------------------
-
-
 async def test_health_shape(client: TestClient):
     r = await client.get("/health")
     body = await r.json()
@@ -99,7 +96,6 @@ async def test_status_shape_matches_StatusResponse(client: TestClient):
     r = await client.get("/status")
     body = await r.json()
     assert "running" in body
-    # When no daemon is attached we still respond — but with running=False.
     assert isinstance(body["running"], bool)
 
 

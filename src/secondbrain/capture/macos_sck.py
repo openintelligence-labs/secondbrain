@@ -1,11 +1,8 @@
 """macOS ScreenCaptureKit frame source.
 
-Spawns the bundled `secondbrain-capture` Swift sidecar (built via
-`swift/SecondBrainCapture/`), reads NDJSON from its stdout, and yields
-`Frame` objects.
-
-Reconnect on crash: the source restarts the subprocess up to
-`max_restarts` times before propagating the failure. Bounded backoff.
+Spawns the `secondbrain-capture` Swift sidecar, reads NDJSON from its stdout,
+and yields `Frame` objects. Restarts the subprocess up to `max_restarts` times
+with bounded backoff before propagating the failure.
 """
 
 from __future__ import annotations
@@ -30,13 +27,7 @@ log = structlog.get_logger()
 
 
 def _default_sidecar_path() -> Path:
-    """Find the built sidecar binary.
-
-    Resolution order:
-      1. `$SECONDBRAIN_CAPTURE_BIN` env var (escape hatch).
-      2. The release build under `swift/SecondBrainCapture/.build/release/`.
-      3. Anything named `secondbrain-capture` on `PATH`.
-    """
+    """Find the built sidecar binary: env var, then release build, then PATH."""
     if env := os.environ.get("SECONDBRAIN_CAPTURE_BIN"):
         return Path(env)
 
@@ -60,9 +51,8 @@ def _default_sidecar_path() -> Path:
 class MacOSScreenSource:
     """SCK-backed FrameSource. macOS only.
 
-    `pixel_mode`:
-      - "png"  — sidecar emits inline base64 PNGs (good for tests / small fps).
-      - "heic" — sidecar writes HEIC to `frame_dir`, NDJSON contains the path.
+    `pixel_mode` is "png" (inline base64 in the NDJSON) or "heic" (sidecar
+    writes files to `frame_dir` and the NDJSON carries the path).
     """
 
     def __init__(
@@ -130,13 +120,11 @@ class MacOSScreenSource:
                 assert self._proc.stdout is not None
                 async for frame in self._read_ndjson(self._proc.stdout):
                     yield frame
-                # process exited cleanly
                 rc = await self._proc.wait()
                 if rc == 0 or self._closed:
                     return
-                # Exit codes 2/3/4/5 from main.swift are hard setup failures
-                # (no displays, perm denied, vision setup) — retrying won't
-                # help. Fail fast with the actual error the user needs to see.
+                # Exit codes 2-5 from main.swift are hard setup failures (no
+                # displays, permission denied, vision setup): retrying won't help.
                 if rc in (2, 3, 4, 5):
                     raise RuntimeError(
                         f"secondbrain-capture exited {rc}: "
@@ -213,12 +201,9 @@ class MacOSScreenSource:
         if image is None:
             return None
 
-        # Snapshot the focused app's AX subtree at frame time. This is the
-        # single thing that turns "anonymous pixels" into "this is Slack
-        # showing a message from Sam about Snowflake." Without it, no
-        # downstream feature works: deny-list, capability cache, person
-        # extraction, search by app, broken-promise detection — all need
-        # `app_name` + `ax_text`.
+        # Snapshot the focused app's AX subtree at frame time: deny-list,
+        # capability cache, person extraction and search-by-app all need
+        # `app_name` + `ax_text`, and without this the frame is anonymous pixels.
         ax_app = ax_bundle = ax_window = ax_text = None
         ax_digest = None
         try:
@@ -232,9 +217,8 @@ class MacOSScreenSource:
                 ax_text = snap.text or None
                 ax_digest = snap.digest
             else:
-                # The most common error is "missing Accessibility permission"
-                # — surface it loudly to the user the first time it happens
-                # so they don't silently capture anonymous pixels for hours.
+                # Usually a missing Accessibility permission; warn loudly so
+                # captures don't silently degrade to anonymous pixels.
                 log.warning("sck.ax_unavailable", err=snap.error)
         except Exception as e:
             log.debug("sck.ax_snapshot_failed", err=repr(e))

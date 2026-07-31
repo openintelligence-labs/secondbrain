@@ -79,7 +79,7 @@ def test_pull_unknown_kind_is_rejected_not_crashed(tmp_path: Path):
     folder = tmp_path / "shared"
     folder.mkdir()
     a = SyncthingBackend(folder=str(folder), psk=psk, device_id="A")
-    # Push a kind we don't yet apply on pull.
+    # A kind that pull does not yet apply.
     a.push("kg_edge", {"src": "m1", "dst": "p1", "kind": "MENTIONS"})
 
     kg = KnowledgeGraph(db_path=tmp_path / "kg")

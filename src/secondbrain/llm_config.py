@@ -1,26 +1,17 @@
 """BYO-LLM env-var contract.
 
-SecondBrain's positioning rule: captures stay local; the LLM transport is
-pluggable. This module is the single place that reads the user's LLM
-environment and produces an `actants.LLM` instance the rest of the code can
-share.
-
-Env vars (read in order; first non-empty wins):
+The single place that reads the user's LLM environment and produces a shared
+`actants.LLM` instance.
 
     SECONDBRAIN_LLM_PROVIDER  → actants provider name (default: "ollama")
-    SECONDBRAIN_LLM_MODEL     → model id              (default: actants's default)
-    SECONDBRAIN_LLM_BASE_URL  → API base URL          (default: provider default)
-    SECONDBRAIN_LLM_API_KEY   → API key for the provider, when needed
+    SECONDBRAIN_LLM_MODEL     → model id
+    SECONDBRAIN_LLM_BASE_URL  → API base URL
+    SECONDBRAIN_LLM_API_KEY   → API key, when the provider needs one
 
-Compatibility: if SECONDBRAIN_LLM_* aren't set, we fall back to actants's
-own ACTANTS_* env vars (it reads them anyway), so users who already
-configured actants elsewhere don't have to re-configure it.
-
-Provider support: `ollama` is the default and ships built-in. The five
-hosted providers — `openai`, `anthropic`, `gemini`, `groq`, `mistral` —
-work once the matching extra is installed (`pip install secondbrain[openai]`,
-etc., or `secondbrain[byo-llm]` for all five). An unrecognised provider
-name is forwarded to actants, which raises a clear error.
+Unset SECONDBRAIN_LLM_* falls back to actants's own ACTANTS_* vars, so an
+existing actants setup keeps working. The five hosted providers (`openai`,
+`anthropic`, `gemini`, `groq`, `mistral`) need their extra installed; an
+unrecognised name is forwarded to actants, which raises a clear error.
 """
 
 from __future__ import annotations

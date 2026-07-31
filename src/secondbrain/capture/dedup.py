@@ -1,16 +1,14 @@
 """Frame deduplication cascade.
 
-Order (cheapest gate first; each gate has authority to skip the frame):
+Gates run cheapest-first; each may skip the frame:
 
-    1. Window-title deny-list match           → skip (0 ms)
-    2. AX-tree subtree hash unchanged         → skip (~1 ms; in `ax.py`)
-    3. Dirty-rect area below threshold         → skip (sidecar emits this)
-    4. dHash Hamming distance below threshold  → skip (~0.3 ms)
-    5. pHash verify on borderline (5..10)      → skip
-    6. SSIM on dirty thumbnail above threshold → skip (~5 ms)
-    7. Sensitive-content classifier (opt-in)   → redact (~150 ms p95)
-
-Public surface: `DedupCascade.evaluate(frame) -> Decision`.
+    1. Window-title deny-list match             → skip
+    2. AX-tree subtree hash unchanged           → skip (in `ax_macos.py`)
+    3. Dirty-rect area below threshold          → skip
+    4. dHash Hamming distance below threshold   → skip
+    5. pHash verify on the borderline band      → skip
+    6. SSIM on dirty thumbnail above threshold  → skip
+    7. Sensitive-content classifier (opt-in)    → redact
 """
 
 from __future__ import annotations
@@ -52,11 +50,7 @@ class Decision:
 
 
 def dhash(image: Image.Image | np.ndarray, hash_size: int = 8) -> int:
-    """Difference-hash. 64-bit (default) integer.
-
-    Resize to (hash_size+1) x hash_size grayscale, then compare each pixel to
-    its right neighbor. The bit pattern is the hash.
-    """
+    """Difference-hash of an image as a 64-bit integer."""
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     img = image.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.LANCZOS)
@@ -74,10 +68,9 @@ def hamming(a: int, b: int) -> int:
 
 
 def phash(image: Image.Image | np.ndarray, hash_size: int = 8) -> int:
-    """Perceptual hash via DCT. 64-bit integer.
+    """Perceptual hash via DCT, as a 64-bit integer.
 
-    Used as a borderline verifier when dHash distance is in the 5–10 ambiguous
-    band. More robust to small visual perturbations than dHash.
+    Verifies the ambiguous dHash band; more robust to small perturbations.
     """
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
@@ -119,11 +112,7 @@ def ssim_thumb(a: Image.Image, b: Image.Image, size: int = 256) -> float:
 
 @dataclass
 class CascadeThresholds:
-    """Tuneable thresholds for the dedup cascade.
-
-    The defaults are validated by the spike benchmarks under `spikes/`;
-    expect to revisit once real workload measurements are in.
-    """
+    """Tuneable thresholds for the dedup cascade."""
 
     dirty_rect_min_fraction: float = 0.005  # 0.5% of display area
     dhash_skip_max: int = 4  # Hamming <=4 = duplicate
@@ -146,8 +135,6 @@ class DedupCascade:
         self._prev_dhash: int | None = None
         self._prev_phash: int | None = None
         self._prev_thumb: Image.Image | None = None
-        # When set, the classifier is invoked after SSIM and can downgrade
-        # a would-be-persist Decision to gate="redacted".
         self._classifier = classifier
         self._redact_threshold = redact_threshold
 
@@ -159,7 +146,6 @@ class DedupCascade:
         hint: str = "",
     ) -> Decision:
         """Run a candidate frame through every gate. Updates state on persist."""
-        # Gate 3 — dirty-rect area
         if dirty_rect_fraction is not None and dirty_rect_fraction < self.t.dirty_rect_min_fraction:
             return Decision(
                 persist=False,
@@ -167,7 +153,6 @@ class DedupCascade:
                 detail=f"fraction={dirty_rect_fraction:.4f}",
             )
 
-        # Gate 4 — dHash
         cur_dhash = dhash(image)
         if self._prev_dhash is not None:
             d_dh = hamming(cur_dhash, self._prev_dhash)
@@ -178,7 +163,6 @@ class DedupCascade:
                     detail=f"hamming={d_dh}",
                 )
 
-            # Gate 5 — pHash verifier on borderline band
             if d_dh <= self.t.dhash_borderline_max:
                 cur_phash = phash(image)
                 if self._prev_phash is not None:
@@ -190,7 +174,6 @@ class DedupCascade:
                             detail=f"dhash={d_dh} phash={d_ph}",
                         )
 
-                # Gate 6 — SSIM final gate (only when pHash also unsure)
                 if self._prev_thumb is not None:
                     s = ssim_thumb(image, self._prev_thumb)
                     if s >= self.t.ssim_skip_min:
@@ -200,15 +183,14 @@ class DedupCascade:
                             detail=f"ssim={s:.4f}",
                         )
 
-        # Gate 7 — sensitive-content classifier (opt-in; only the most
-        # expensive frames get here). Position-after-SSIM is deliberate: we
-        # never want to pay ~150ms on frames the cheap gates would drop, and
-        # we never want to *persist* sensitive content even briefly.
+        # The classifier sits after SSIM deliberately: never pay its ~150ms on
+        # frames the cheap gates would drop, and never persist sensitive
+        # content even briefly.
         if self._classifier is not None:
             decision = self._classifier.classify(image, hint=hint)
             if decision.is_sensitive and decision.confidence >= self._redact_threshold:
-                # Still advance state so the *next* identical frame is caught
-                # by dHash/SSIM and we don't re-run the classifier on it.
+                # Advance state anyway so the next identical frame is caught by
+                # dHash/SSIM instead of re-running the classifier.
                 self._prev_dhash = cur_dhash
                 self._prev_phash = phash(image)
                 self._prev_thumb = image
@@ -219,7 +201,6 @@ class DedupCascade:
                     redaction=decision,
                 )
 
-        # Survived all gates → persist; update state.
         self._prev_dhash = cur_dhash
         self._prev_phash = phash(image)
         self._prev_thumb = image

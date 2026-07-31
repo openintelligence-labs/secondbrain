@@ -1,7 +1,4 @@
-"""Pydantic models — the typed substrate the architecture is built on.
-
-Kept narrow on purpose: models grow as features land, not preemptively.
-"""
+"""Pydantic models shared across module boundaries."""
 
 from __future__ import annotations
 
@@ -17,8 +14,8 @@ CaptureSource = Literal["screen", "audio", "browser", "document", "clipboard", "
 class Capture(BaseModel):
     """A single observation persisted to the timeline.
 
-    Only `screen` captures are produced today; later sources reuse the same
-    schema unchanged so retrieval and KG layers remain source-agnostic.
+    All sources share this schema so retrieval and KG layers stay
+    source-agnostic.
     """
 
     id: str
@@ -38,7 +35,7 @@ class Capture(BaseModel):
     redacted: bool = False
     monitor_index: int | None = None
     capability_cache_hit: bool = False
-    # Diagnostic: which gate the cascade emitted this capture from.
+    # Which cascade gate emitted this capture.
     gate: str = "persist"
     # Free-form per-source metadata (eg. dirty-rect fraction, dHash distance).
     meta: dict[str, str | int | float | bool] = Field(default_factory=dict)

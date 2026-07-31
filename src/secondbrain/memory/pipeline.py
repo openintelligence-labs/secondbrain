@@ -1,7 +1,6 @@
 """Memory pipeline — Capture → extract → A-MEM link → KG insert.
 
-Wires the extractor, importance scorer, A-MEM linker, and entity resolver
-into one entry point the daemon can call once per persisted capture.
+One entry point the daemon calls per persisted capture.
 """
 
 from __future__ import annotations
@@ -24,9 +23,10 @@ log = structlog.get_logger()
 
 @dataclass
 class PipelineMetrics:
-    """Degradation counters surfaced via /metrics. A non-zero count means the
-    pipeline successfully ingested the memory but had to skip a step — useful
-    for spotting a flaky LLM extractor or a corrupt linker index."""
+    """Degradation counters surfaced via /metrics.
+
+    A non-zero count means the memory was ingested but a step was skipped.
+    """
 
     linker_failures: int = 0
     commitment_failures: int = 0
@@ -49,10 +49,8 @@ class MemoryPipeline:
     kg: KnowledgeGraph
     linker: AMemLinker
     resolver: EntityResolver
-    # Last N memories to consider as A-MEM neighbors per ingest.
+    # Last N memories considered as A-MEM neighbors per ingest.
     neighbor_window: int = 200
-    # Dedup window: if a capture's cleaned-OCR hash matches anything in the
-    # last `ocr_dedup_window` ingests, skip it.
     ocr_dedup_window: int = 50
     metrics: PipelineMetrics = field(default_factory=PipelineMetrics)
     _recent: list[tuple[str, str]] = None  # type: ignore[assignment]
@@ -65,8 +63,7 @@ class MemoryPipeline:
             self._recent_ocr_hashes = deque(maxlen=self.ocr_dedup_window)
 
     def ingest(self, capture: Capture) -> ExtractedMemory | None:
-        # Pre-clean: strip menu-bar chrome and OS clock noise from OCR text
-        # before extraction. This both improves importance scoring and makes
+        # Stripping menu-bar chrome and OS clock noise before extraction keeps
         # the dedup hash stable across cosmetic frame jitter.
         raw_text = capture.ax_text or capture.ocr_text or ""
         if raw_text:
@@ -77,19 +74,16 @@ class MemoryPipeline:
             if not looks_substantive(cleaned):
                 self.metrics.dropped_thin += 1
                 return None
-            # Cross-capture dedup: if we just ingested the same content,
-            # don't ingest it again. The cascade already dedups *pixels*,
-            # but OCR can produce the same text from visually different
-            # frames (cursor blink, sub-pixel scroll, anti-aliasing jitter).
+            # The cascade dedups *pixels*, but OCR can produce identical text
+            # from visually different frames (cursor blink, sub-pixel scroll,
+            # anti-aliasing jitter).
             h = content_hash(cleaned)
             if h in self._recent_ocr_hashes:
                 self.metrics.dropped_dup_ocr += 1
                 return None
             self._recent_ocr_hashes.append(h)
-            # Substitute the cleaned text into the capture so downstream
-            # extract / importance / commitment all see the clean version.
-            # We mutate ocr_text (not ax_text) because ax_text is treated as
-            # canonical structured AX output and shouldn't be silently rewritten.
+            # Substitute the cleaned text so extract / importance / commitment
+            # all see the clean version.
             if capture.ax_text:
                 capture = capture.model_copy(update={"ax_text": cleaned})
             else:
@@ -99,7 +93,6 @@ class MemoryPipeline:
         if memory is None:
             return None
 
-        # 1. Persist the capture node + the memory + provenance
         self.kg.upsert_capture(
             capture.id,
             capture.source,
@@ -118,7 +111,6 @@ class MemoryPipeline:
         )
         self.kg.link_memory_to_capture(memory.id, capture.id, ingested_at=memory.ingested_at)
 
-        # 2. Resolve persons + add MENTIONS edges
         for name in memory.persons:
             person_id = self.resolver.resolve_from_text(memory.content, default_name=name)
             self.kg.link_memory_to_person(
@@ -128,8 +120,7 @@ class MemoryPipeline:
                 ingested_at=memory.ingested_at,
             )
 
-        # 3. A-MEM neighbor linking. Linker failures are non-fatal — we log
-        #    them, bump a counter, and ingest the memory without neighbor edges.
+        # Linker failures are non-fatal: ingest the memory without neighbor edges.
         if self._recent:
             try:
                 neighbors = self.linker.neighbors(memory.content, self._recent)
@@ -145,22 +136,20 @@ class MemoryPipeline:
             for nid, weight in neighbors:
                 self.kg.link_memories(memory.id, nid, weight=weight, ingested_at=now())
 
-        # 4. Update the rolling window
         self._recent.append((memory.id, memory.content))
         if len(self._recent) > self.neighbor_window:
             self._recent = self._recent[-self.neighbor_window :]
 
-        # 5. Commitment extraction. Owner defaults to the first MENTIONS person
-        #    (best heuristic without explicit speaker attribution); when no
-        #    person was extracted we leave owner_pid empty.
+        # Owner defaults to the first MENTIONS person — the best available
+        # heuristic without explicit speaker attribution.
         owner_pid: str | None = None
         if memory.persons:
             owner_pid = self.resolver.resolve_from_text(
                 memory.content, default_name=memory.persons[0]
             )
         try:
-            # `now` is the capture's own clock, not wall-clock-when-we-ingest.
-            # "Sam said tomorrow" should resolve relative to when Sam said it.
+            # `now` is the capture's own clock, not ingest wall-clock:
+            # "Sam said tomorrow" resolves relative to when Sam said it.
             for c in extract_commitments(
                 memory.content,
                 capture_id=capture.id,
@@ -177,8 +166,7 @@ class MemoryPipeline:
                     status=c.status,
                 )
         except Exception as e:
-            # Don't let a flaky LLM extractor block ingestion. Log + count so
-            # the operator can spot a degraded provider via /metrics.
+            # A flaky LLM extractor must not block ingestion.
             self.metrics.commitment_failures += 1
             log.warning(
                 "memory.commitment_extract_failed",

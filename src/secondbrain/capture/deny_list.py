@@ -1,22 +1,9 @@
 """Window-title deny-list — gate 1 of the dedup cascade.
 
-Purpose: kill the entire class of "Recall got crucified for capturing my password
-manager" frames at 0 ms before any pixel work. Built-in defaults cover password
-managers, banking, healthcare, and 2FA confirmation prompts. User-extensible via
-a YAML file.
-
-Match semantics:
-- Patterns are POSIX regex, compiled case-insensitive.
-- A frame is denied if ANY pattern matches the *concatenation* of `app_name`
-  and `window_title` (`app_name :: window_title`).
-- `app_only` patterns match the app name in isolation (avoid matching anywhere
-  in a long window title).
-
-YAML format:
-    deny:
-      - 'pattern'
-    deny_app_only:
-      - 'app_pattern'
+Drops password-manager / banking / health / 2FA frames before any pixel work.
+Patterns are case-insensitive regex; `deny` matches `app_name :: window_title`,
+`deny_app_only` matches the app name alone, `deny_bundle_id` the bundle id.
+User-extensible via a YAML file with those three keys.
 """
 
 from __future__ import annotations
@@ -27,9 +14,7 @@ from pathlib import Path
 
 import yaml
 
-# These defaults come from the architecture's "kill 80% of Recall-class frames
-# at 0 ms before VLM" line. They are deliberately broad; users can pare back via
-# the YAML override.
+# Deliberately broad; users pare back via the YAML override.
 DEFAULT_DENY: list[str] = [
     # Password managers
     r"\b1Password\b",
@@ -72,9 +57,8 @@ DEFAULT_DENY_APP_ONLY: list[str] = [
     r"^secondbrain-app$",
 ]
 
-# Bundle-ID-keyed deny patterns. Matched against `app_bundle_id` only.
-# More robust than name matching because users can rename apps but the
-# bundle id is set at signing time.
+# More robust than name matching: users can rename apps, but the bundle id is
+# set at signing time.
 DEFAULT_DENY_BUNDLE_ID: list[str] = [
     r"^com\.openintelligencelabs\.secondbrain$",
 ]

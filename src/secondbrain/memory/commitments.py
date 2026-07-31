@@ -109,8 +109,6 @@ def set_extractor(fn: Callable[..., list[Commitment]]) -> None:
     _extractor = fn
 
 
-# ----- actants-backed LLM extractor --------------------------------------
-
 import asyncio as _asyncio  # noqa: E402  (avoid shadowing top-of-file imports)
 import threading as _threading  # noqa: E402
 

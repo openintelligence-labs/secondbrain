@@ -40,10 +40,9 @@ CREATE TABLE IF NOT EXISTS app_capability (
 """
 
 
-# Hysteresis policy: once an app has been observed, we don't flip `usable` on a
-# single bad sample. We require:
-#   - to flip OFF: 5 consecutive misses since the last hit
-#   - to flip ON: at least 3 hits AND >=70% success rate over the window
+# Hysteresis, so a single bad sample never flips `usable`:
+#   OFF: 5 consecutive misses since the last hit
+#   ON:  at least 3 hits AND >=70% success rate over the window
 class CapabilityCache:
     """Thin SQLite-backed registry of which apps expose AX text reliably."""
 
@@ -79,7 +78,6 @@ class CapabilityCache:
 
         if ax_text_present:
             self._misses_since_last_hit[key] = 0
-            # Flip ON once we have ≥3 successes and ≥70% rate.
             if success >= 3 and (success / total) >= 0.7:
                 usable = True
         else:

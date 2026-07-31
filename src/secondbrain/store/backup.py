@@ -9,14 +9,11 @@ sibling stores:
     <db_path>.parent/kg/      — Kùzu knowledge graph
 
 A backup is a single .tar.gz containing those four trees plus a `manifest.json`
-that records schema version, file SHA-256s, and a wall-clock timestamp. Restore
-refuses to overwrite unless the caller passes `force=True`, and refuses
-entirely if a SecondBrain daemon is currently running against the target path
-(detected via a `lock` file the daemon would write — not yet wired; for now we
-rely on the operator running `launchctl unload …` first).
+recording schema version, file SHA-256s, and a timestamp. Restore refuses to
+overwrite unless the caller passes `force=True`.
 
-Format choice: plain tar.gz with a manifest. No external deps beyond stdlib.
-Compression matters less than portability for a personal-data tool.
+TODO: refuse restore while a daemon holds the target path; the lock file the
+detection would read is not written yet.
 """
 
 from __future__ import annotations
